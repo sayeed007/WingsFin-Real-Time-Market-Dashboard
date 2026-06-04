@@ -146,10 +146,16 @@ function LiveChartSection({
   const handleUpdate = useCallback(
     (payload: MarketUpdatePayload) => {
       setPoints((previous) =>
-        mergeLiveUpdate(previous, payload, history.sessionStart, history.sessionEnd),
+        mergeLiveUpdate(
+          previous,
+          payload,
+          history.sessionStart,
+          history.sessionEnd,
+          history.timezone,
+        ),
       )
     },
-    [history.sessionEnd, history.sessionStart],
+    [history.sessionEnd, history.sessionStart, history.timezone],
   )
 
   useMarketSocket({
@@ -173,12 +179,13 @@ function LiveChartSection({
           new Date().toISOString(),
           history.sessionEnd,
           history.yesterdayClose,
+          history.timezone,
         ),
       )
     }, 1_000)
 
     return () => window.clearInterval(interval)
-  }, [history.sessionEnd, history.yesterdayClose])
+  }, [history.sessionEnd, history.timezone, history.yesterdayClose])
 
   return (
     <MarketChart
@@ -188,6 +195,7 @@ function LiveChartSection({
       sessionStart={history.sessionStart}
       sessionEnd={history.sessionEnd}
       yesterdayClose={history.yesterdayClose}
+      timezone={history.timezone}
     />
   )
 }

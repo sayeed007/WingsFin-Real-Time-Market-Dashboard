@@ -15,6 +15,7 @@ type MarketChartProps = {
   sessionStart: string
   sessionEnd: string
   yesterdayClose: number
+  timezone: string
 }
 
 export function MarketChart({
@@ -24,6 +25,7 @@ export function MarketChart({
   sessionStart,
   sessionEnd,
   yesterdayClose,
+  timezone,
 }: MarketChartProps) {
   const latestPoint = points[points.length - 1]
 
@@ -47,14 +49,14 @@ export function MarketChart({
       tooltip: {
         trigger: 'item',
         formatter: (params: unknown) =>
-          formatChartTooltip(params, yesterdayClose, symbol),
+          formatChartTooltip(params, yesterdayClose, symbol, timezone),
       },
       xAxis: {
         type: 'time',
         min: sessionStart,
         max: sessionEnd,
         axisLabel: {
-          formatter: (value: number) => formatMinute(value),
+          formatter: (value: number) => formatMinute(value, timezone),
           hideOverlap: true,
         },
       },
@@ -83,11 +85,11 @@ export function MarketChart({
             symbol: 'none',
             silent: true,
             data: [{ yAxis: yesterdayClose }],
-          lineStyle: {
-            type: 'dashed',
-            color: '#359F2F',
-            width: 1.5,
-          },
+            lineStyle: {
+              type: 'dashed',
+              color: '#359F2F',
+              width: 1.5,
+            },
             label: {
               formatter: 'Yesterday close',
             },
@@ -109,7 +111,7 @@ export function MarketChart({
         },
       ],
     }
-  }, [points, sessionStart, sessionEnd, yesterdayClose, symbol, latestPoint])
+  }, [points, sessionStart, sessionEnd, yesterdayClose, symbol, latestPoint, timezone])
 
   return (
     <section className="chart-panel">

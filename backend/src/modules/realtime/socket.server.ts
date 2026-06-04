@@ -2,8 +2,14 @@ import { Server as HttpServer } from 'http';
 import { Server } from 'socket.io';
 
 import { env } from '@src/config/env';
-import type { MarketUpdatePayload, SymbolType } from '@src/modules/market/market.types';
-import { replaceSubscription, roomName } from '@src/modules/realtime/subscription.store';
+import type {
+  MarketUpdatePayload,
+  SymbolType,
+} from '@src/modules/market/market.types';
+import {
+  replaceSubscription,
+  roomName,
+} from '@src/modules/realtime/subscription.store';
 import { subscribeSchema } from '@src/validation/marketPayload.schema';
 
 let io: Server | undefined;
@@ -38,8 +44,21 @@ export function emitMarketUpdate(payload: MarketUpdatePayload): void {
   io?.to(roomName(payload.type, payload.symbol)).emit('market:update', payload);
 }
 
-export function emitMarketClosed(payload: { message: string; closedAt: string }): void {
+export function emitMarketClosed(payload: {
+  message: string;
+  closedAt: string;
+}): void {
   io?.emit('market:closed', payload);
+}
+
+export async function closeSocketServer(): Promise<void> {
+  if (!io) {
+    return;
+  }
+
+  const server = io;
+  io = undefined;
+  await server.close();
 }
 
 export function getSocketRoomSize(type: SymbolType, symbol: string): number {

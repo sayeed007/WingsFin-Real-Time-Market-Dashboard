@@ -11,6 +11,7 @@ export function formatChartTooltip(
   params: unknown,
   reference: number,
   symbol: string,
+  timezone?: string,
 ): string {
   const first = Array.isArray(params) ? (params[0] as TooltipData | undefined) : params
   const tuple = (first as TooltipData | undefined)?.data?.value ?? (first as TooltipData | undefined)?.value
@@ -25,7 +26,7 @@ export function formatChartTooltip(
 
   return [
     `${symbol}`,
-    `Time: ${formatDisplayTime(time)}`,
+    `Time: ${formatDisplayTime(time, timezone)}`,
     `Value: ${value.toFixed(2)}`,
     `Reference: ${reference.toFixed(2)}`,
     `Change: ${sign}${change.toFixed(2)}`,

@@ -3,7 +3,10 @@ import { createServer } from 'http';
 import { env } from '@src/config/env';
 import { logger } from '@src/config/logger';
 import { prisma } from '@src/db/prisma';
-import { attachSocketServer } from '@src/modules/realtime/socket.server';
+import {
+  attachSocketServer,
+  closeSocketServer,
+} from '@src/modules/realtime/socket.server';
 import {
   startSimulator,
   stopSimulator,
@@ -12,13 +15,11 @@ import { ensureDefaultSymbols } from '@src/modules/symbols/symbols.service';
 import app from '@src/server';
 
 const httpServer = createServer(app);
+let shuttingDown = false;
 
 attachSocketServer(httpServer);
 
-async function waitForDatabase(
-  retries = 5,
-  delayMs = 2000,
-): Promise<void> {
+async function waitForDatabase(retries = 5, delayMs = 2000): Promise<void> {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       await prisma.$queryRaw`SELECT 1`;
@@ -52,13 +53,22 @@ async function bootstrap(): Promise<void> {
 }
 
 function shutdown(): void {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
   logger.info('Shutting down...');
   stopSimulator();
-  httpServer.close(() => {
-    void prisma.$disconnect().finally(() => {
-      process.exit(0);
+  void closeSocketServer()
+    .catch((error) => {
+      logger.error(error, 'Socket server shutdown failed');
+    })
+    .finally(() => {
+      void prisma.$disconnect().finally(() => {
+        process.exit(0);
+      });
     });
-  });
 }
 
 process.on('SIGINT', shutdown);

@@ -1,5 +1,5 @@
-import { logger } from '../src/config/logger';
-import { disconnectSeedPrisma, runSeed } from '../src/seed';
+import { logger } from './config/logger';
+import { disconnectSeedPrisma, runSeed } from './seed';
 
 void runSeed()
   .catch((error) => {

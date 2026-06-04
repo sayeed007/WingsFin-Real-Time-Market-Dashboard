@@ -41,7 +41,7 @@ services:
       - "4000:4000"
     command: >
       sh -c "npx prisma migrate deploy &&
-             if [ \"$${SEED_ON_STARTUP:-true}\" = 'true' ]; then npm run seed; fi &&
+             if [ \"$${SEED_ON_STARTUP:-true}\" = 'true' ]; then npm run seed:prod; fi &&
              npm start"
 
   frontend:

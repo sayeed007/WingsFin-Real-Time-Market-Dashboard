@@ -142,6 +142,40 @@ describe('mergeLiveUpdate', () => {
     expect(points[1].value).toBe(100)
     expect(points[2].value).toBe(110)
   })
+
+  it('inserts out-of-order updates chronologically', () => {
+    const existingPoints: ChartPoint[] = [
+      basePoints[0],
+      {
+        time: '2026-06-03T04:03:00.000Z',
+        minute: '10:03',
+        value: 104,
+        status: 'above',
+      },
+    ]
+    const update: MarketUpdatePayload = {
+      symbol: 'DSEX',
+      type: 'INDEX',
+      time: '2026-06-03T10:02:15+06:00',
+      minuteTime: '2026-06-03T10:02:00+06:00',
+      value: 102,
+      yesterdayClose: 100,
+      status: 'above',
+    }
+
+    const points = mergeLiveUpdate(
+      existingPoints,
+      update,
+      '2026-06-03T10:00:00+06:00',
+      '2026-06-03T14:30:00+06:00',
+    )
+
+    expect(points.map((point) => point.time)).toEqual([
+      '2026-06-03T04:00:00.000Z',
+      '2026-06-03T04:02:00.000Z',
+      '2026-06-03T04:03:00.000Z',
+    ])
+  })
 })
 
 describe('advanceToMinute', () => {

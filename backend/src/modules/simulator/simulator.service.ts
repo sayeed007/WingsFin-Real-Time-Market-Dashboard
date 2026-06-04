@@ -1,20 +1,32 @@
-import { DateTime } from 'luxon';
 import type { InputJsonValue } from '@prisma/client/runtime/library';
+import { DateTime } from 'luxon';
 
 import { env } from '@src/config/env';
 import { logger } from '@src/config/logger';
 import { prisma } from '@src/db/prisma';
-import type { MarketUpdatePayload, SymbolType } from '@src/modules/market/market.types';
+import { invalidateChartHistoryCache } from '@src/modules/chart/chart.service';
 import { isMarketOpen } from '@src/modules/market/market.service';
-import { emitMarketClosed, emitMarketUpdate } from '@src/modules/realtime/socket.server';
+import type {
+  MarketUpdatePayload,
+  SymbolType,
+} from '@src/modules/market/market.types';
+import {
+  emitMarketClosed,
+  emitMarketUpdate,
+} from '@src/modules/realtime/socket.server';
 import { ensureDefaultSymbols } from '@src/modules/symbols/symbols.service';
+import { compareToReference, roundMarketValue } from '@src/utils/compare';
+import { HttpError } from '@src/utils/http';
+import {
+  fromEpochMillis,
+  getMarketSession,
+  isWithinSession,
+  toIso,
+} from '@src/utils/time';
 import type {
   IndexUpdateInput,
   StockUpdateInput,
 } from '@src/validation/marketPayload.schema';
-import { compareToReference, roundMarketValue } from '@src/utils/compare';
-import { HttpError } from '@src/utils/http';
-import { fromEpochMillis, getMarketSession, isWithinSession, toIso } from '@src/utils/time';
 
 type SimulatorState = {
   type: SymbolType;
@@ -104,20 +116,28 @@ async function recordTick(params: {
   yesterdayClose: number;
   rawPayload: InputJsonValue;
 }): Promise<MarketUpdatePayload> {
-  await prisma.symbol.upsert({
-    where: { symbol: params.symbol },
-    update: {
-      type: params.type,
-      yesterdayClose: params.yesterdayClose,
-    },
-    create: {
-      symbol: params.symbol,
-      type: params.type,
-      displayName:
-        params.type === 'INDEX' ? `${params.symbol} Index` : params.symbol,
-      yesterdayClose: params.yesterdayClose,
-    },
-  });
+  const symbol =
+    (await prisma.symbol.findUnique({
+      where: { symbol: params.symbol },
+    })) ??
+    (await prisma.symbol.create({
+      data: {
+        symbol: params.symbol,
+        type: params.type,
+        displayName:
+          params.type === 'INDEX' ? `${params.symbol} Index` : params.symbol,
+        yesterdayClose: params.yesterdayClose,
+      },
+    }));
+
+  if (symbol.type !== params.type) {
+    throw new HttpError(
+      409,
+      `Symbol ${params.symbol} is already registered as ${symbol.type}.`,
+    );
+  }
+
+  const referenceClose = symbol.yesterdayClose.toNumber();
 
   await prisma.marketTick.create({
     data: {
@@ -125,12 +145,16 @@ async function recordTick(params: {
       type: params.type,
       eventTime: params.eventTime.toJSDate(),
       value: params.value,
-      yesterdayClose: params.yesterdayClose,
+      yesterdayClose: referenceClose,
       rawPayload: params.rawPayload,
     },
   });
+  invalidateChartHistoryCache({ type: params.type, symbol: params.symbol });
 
-  const update = createMarketUpdate(params);
+  const update = createMarketUpdate({
+    ...params,
+    yesterdayClose: referenceClose,
+  });
   if (isMarketOpen()) {
     emitMarketUpdate(update);
   }
@@ -140,7 +164,9 @@ async function recordTick(params: {
 export async function recordIndexUpdate(
   payload: IndexUpdateInput,
 ): Promise<MarketUpdatePayload> {
-  const eventTime = payload.time ? fromEpochMillis(payload.time) : DateTime.utc();
+  const eventTime = payload.time
+    ? fromEpochMillis(payload.time)
+    : DateTime.utc();
   assertAcceptableEventTime(eventTime);
 
   const yesterdayClose =
@@ -160,7 +186,9 @@ export async function recordIndexUpdate(
 export async function recordStockUpdate(
   payload: StockUpdateInput,
 ): Promise<MarketUpdatePayload> {
-  const eventTime = payload.time ? fromEpochMillis(payload.time) : DateTime.utc();
+  const eventTime = payload.time
+    ? fromEpochMillis(payload.time)
+    : DateTime.utc();
   assertAcceptableEventTime(eventTime);
 
   return recordTick({
@@ -217,12 +245,34 @@ function schedule(state: SimulatorState): void {
   }, randomInterval());
 }
 
+async function hydrateStateFromLatestTick(
+  state: SimulatorState,
+): Promise<void> {
+  const session = getMarketSession(DateTime.utc());
+  const latestTick = await prisma.marketTick.findFirst({
+    where: {
+      symbol: state.symbol,
+      type: state.type,
+      eventTime: {
+        gte: session.sessionStart.toJSDate(),
+        lt: session.sessionEnd.toJSDate(),
+      },
+    },
+    orderBy: [{ eventTime: 'desc' }, { id: 'desc' }],
+  });
+
+  if (latestTick) {
+    state.value = clamp(latestTick.value.toNumber(), state.min, state.max);
+  }
+}
+
 export async function startSimulator(): Promise<void> {
   if (!env.simulatorEnabled) {
     return;
   }
 
   await ensureDefaultSymbols();
+  await Promise.all(states.map(hydrateStateFromLatestTick));
   states.forEach(schedule);
 }
 

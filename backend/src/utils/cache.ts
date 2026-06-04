@@ -41,4 +41,16 @@ export class KeyedTtlCache<T> {
   set(key: string, value: T): void {
     this.entries.set(key, { value, expiresAt: Date.now() + this.ttlMs });
   }
+
+  delete(key: string): void {
+    this.entries.delete(key);
+  }
+
+  invalidatePrefix(prefix: string): void {
+    for (const key of this.entries.keys()) {
+      if (key.startsWith(prefix)) {
+        this.entries.delete(key);
+      }
+    }
+  }
 }

@@ -47,4 +47,28 @@ describe('KeyedTtlCache', () => {
     await new Promise((resolve) => setTimeout(resolve, 60));
     expect(cache.get('x')).toBeUndefined();
   });
+
+  it('deletes a single key', () => {
+    const cache = new KeyedTtlCache<number>(5000);
+    cache.set('a', 1);
+    cache.set('b', 2);
+
+    cache.delete('a');
+
+    expect(cache.get('a')).toBeUndefined();
+    expect(cache.get('b')).toBe(2);
+  });
+
+  it('invalidates keys by prefix', () => {
+    const cache = new KeyedTtlCache<number>(5000);
+    cache.set('INDEX:DSEX:10:00', 1);
+    cache.set('INDEX:DSEX:10:01', 2);
+    cache.set('STOCK:GP:10:00', 3);
+
+    cache.invalidatePrefix('INDEX:DSEX:');
+
+    expect(cache.get('INDEX:DSEX:10:00')).toBeUndefined();
+    expect(cache.get('INDEX:DSEX:10:01')).toBeUndefined();
+    expect(cache.get('STOCK:GP:10:00')).toBe(3);
+  });
 });

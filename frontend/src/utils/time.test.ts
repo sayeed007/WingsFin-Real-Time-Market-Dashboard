@@ -33,6 +33,13 @@ describe('formatMinute', () => {
     const result = formatMinute(epoch)
     expect(result).toMatch(/^\d{2}:\d{2}$/)
   })
+
+  it('uses the provided timezone when formatting', () => {
+    const epoch = new Date('2026-06-03T04:05:00.000Z').getTime()
+
+    expect(formatMinute(epoch, 'UTC')).toBe('04:05')
+    expect(formatMinute(epoch, 'Asia/Dhaka')).toBe('10:05')
+  })
 })
 
 describe('MINUTE_MS', () => {

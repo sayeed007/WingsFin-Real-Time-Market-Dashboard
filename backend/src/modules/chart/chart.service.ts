@@ -14,6 +14,25 @@ import { getMarketSession, isWithinSession, toIso } from '@src/utils/time';
 
 const historyCache = new KeyedTtlCache<ChartHistoryResponse>(10_000);
 
+function historyCachePrefix(type: SymbolType, symbol: string): string {
+  return `${type}:${symbol}:`;
+}
+
+function historyCacheKey(
+  type: SymbolType,
+  symbol: string,
+  currentMinute: DateTime,
+): string {
+  return `${historyCachePrefix(type, symbol)}${toIso(currentMinute)}`;
+}
+
+export function invalidateChartHistoryCache(params: {
+  type: SymbolType;
+  symbol: string;
+}): void {
+  historyCache.invalidatePrefix(historyCachePrefix(params.type, params.symbol));
+}
+
 export async function getChartHistory(params: {
   type: SymbolType;
   symbol: string;
@@ -24,7 +43,7 @@ export async function getChartHistory(params: {
   const currentMinute = session.currentTime.startOf('minute');
   const isMarketOpen = isWithinSession(session.currentTime, session);
 
-  const cacheKey = `${params.type}:${params.symbol}:${toIso(currentMinute)}`;
+  const cacheKey = historyCacheKey(params.type, params.symbol, currentMinute);
   const cached = historyCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -35,7 +54,9 @@ export async function getChartHistory(params: {
   });
 
   if (!symbol || symbol.type !== params.type) {
-    throw new Error(`Unknown ${params.type.toLowerCase()} symbol ${params.symbol}.`);
+    throw new Error(
+      `Unknown ${params.type.toLowerCase()} symbol ${params.symbol}.`,
+    );
   }
 
   const yesterdayClose = symbol.yesterdayClose.toNumber();
@@ -105,7 +126,8 @@ export async function getChartHistory(params: {
     sessionEnd: toIso(session.sessionEnd),
     currentMinute: toIso(currentMinute),
     yesterdayClose,
-    latestValue: points.length > 0 ? points[points.length - 1].value : fallbackValue,
+    latestValue:
+      points.length > 0 ? points[points.length - 1].value : fallbackValue,
     points,
   };
 
