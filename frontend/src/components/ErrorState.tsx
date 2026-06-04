@@ -13,14 +13,14 @@ export function ErrorState({
 }) {
   return (
     <Card
-      className="min-h-[210px] !border-[var(--border)] !bg-[var(--surface)] shadow-[var(--shadow)]"
+      className="min-h-52.5 border-(--border)! bg-(--surface)! shadow-(--shadow)"
       classNames={{
         body: 'flex min-h-[210px] flex-col items-start justify-center gap-3 p-7 font-bold text-[var(--brand-text)]',
       }}
       role="alert"
       variant="outlined"
     >
-      <span className="text-xs font-extrabold uppercase tracking-[0.04em] text-[var(--danger)]">
+      <span className="text-xs font-extrabold uppercase tracking-[0.04em] text-(--danger)">
         {label}
       </span>
       <Alert
@@ -29,7 +29,7 @@ export function ErrorState({
             Retry
           </Button>
         }
-        className="w-full !border-[var(--error-border)] !bg-[linear-gradient(135deg,var(--error-accent),var(--transparent)_48%),var(--surface)]"
+        className="w-full border-(--error-border)! bg-[linear-gradient(135deg,var(--error-accent),var(--transparent)_48%),var(--surface)]!"
         classNames={{
           title:
             '![font-family:var(--serif)] !text-[24px] !font-medium !leading-[1.2] !text-[var(--brand-ink)]',

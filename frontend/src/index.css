@@ -1,4 +1,4 @@
-@import "tailwindcss/utilities.css" layer(utilities);
+@import "tailwindcss";
 
 :root {
   --brand-ink-rgb: 40 43 42;
@@ -83,6 +83,10 @@ body {
     linear-gradient(135deg, var(--hero-gradient-start), var(--hero-gradient-end)),
     var(--brand-ink);
   box-shadow: var(--shadow);
+}
+
+.brand-hero-copy > :where(p, h1) {
+  margin: 0;
 }
 
 .chart-type-select .ant-select-selector {

@@ -153,7 +153,7 @@ export function MarketChart({
 
   return (
     <Card
-      className="relative overflow-hidden !border-[var(--border)] !bg-[var(--surface)] shadow-[var(--shadow)]"
+      className="relative overflow-hidden border-(--border)! bg-(--surface)! shadow-(--shadow)"
       classNames={{ body: 'p-4' }}
       variant="outlined"
     >
@@ -161,19 +161,19 @@ export function MarketChart({
       <div className="mb-1 flex items-start justify-between gap-4 pt-1 max-[860px]:grid">
         <div>
           <Tag
-            className="!m-0 !mb-1.5 inline-flex rounded-full !bg-[var(--surface-green)] px-2.5 py-[3px] text-[11px] font-extrabold tracking-[0.06em] !text-[var(--brand-green-deep)]"
+            className="m-0! mb-1.5! inline-flex rounded-full bg-(--surface-green)! px-2.5 py-0.75 text-[11px] font-extrabold tracking-[0.06em] text-(--brand-green-deep)!"
             color="success"
             variant="filled"
           >
             {type}
           </Tag>
           <Typography.Title
-            className="!m-0 ![font-family:var(--serif)] !text-[24px] !font-medium !leading-[1.12] !text-[var(--brand-ink)] max-[860px]:!text-[22px]"
+            className="m-0! [font-family:var(--serif)]! text-[24px]! font-medium! leading-[1.12]! text-(--brand-ink)! max-[860px]:text-[22px]!"
             level={2}
           >
             {symbol} {type === 'INDEX' ? 'Index' : 'Stock'}
           </Typography.Title>
-          <Typography.Paragraph className="!mb-0 !mt-1 !text-[14px] !text-[var(--brand-text)]">
+          <Typography.Paragraph className="mb-0! mt-1! text-[14px]! text-(--brand-text)!">
             Yesterday close: {yesterdayClose.toFixed(2)}
           </Typography.Paragraph>
         </div>
@@ -181,7 +181,7 @@ export function MarketChart({
       </div>
       <ReactECharts
         option={option}
-        className="h-[clamp(460px,calc(100vh_-_390px),640px)] w-full max-[860px]:h-[430px]"
+        className="h-[clamp(460px,calc(100vh-390px),640px)] w-full max-[860px]:h-107.5"
         lazyUpdate
       />
     </Card>

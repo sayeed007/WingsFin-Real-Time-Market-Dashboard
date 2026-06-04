@@ -15,11 +15,11 @@ export function ChartTypeDropdown({
   onChange: (value: SymbolType) => void
 }) {
   return (
-    <div className="grid min-w-[220px] gap-1.5 text-[13px] font-extrabold text-[var(--brand-text)] max-[860px]:w-full">
+    <div className="grid min-w-55 gap-1.5 text-[13px] font-extrabold text-(--brand-text) max-[860px]:w-full">
       <span id="chart-type-label">Chart Type</span>
       <Select<SymbolType>
         aria-labelledby="chart-type-label"
-        className="chart-type-select h-[42px] min-w-[220px] max-[860px]:w-full"
+        className="chart-type-select h-10.5 min-w-55 max-[860px]:w-full"
         options={chartTypeOptions}
         value={value}
         onChange={onChange}

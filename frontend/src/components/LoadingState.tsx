@@ -4,7 +4,7 @@ export function LoadingState({ message }: { message: string }) {
   return (
     <Card
       aria-live="polite"
-      className="min-h-[210px] !border-[var(--border)] !bg-[var(--surface)] shadow-[var(--shadow)]"
+      className="min-h-52.5 border-(--border)! bg-(--surface)! shadow-(--shadow)"
       classNames={{
         body: 'flex min-h-[210px] flex-col items-center justify-center gap-3 p-7 font-bold text-[var(--brand-text)]',
       }}
@@ -12,7 +12,7 @@ export function LoadingState({ message }: { message: string }) {
       variant="outlined"
     >
       <Spin
-        className="[&_.ant-spin-text]:!font-bold [&_.ant-spin-text]:!text-[var(--brand-text)]"
+        className="[&_.ant-spin-text]:font-bold! [&_.ant-spin-text]:text-(--brand-text)!"
         description={message}
         size="large"
       />
