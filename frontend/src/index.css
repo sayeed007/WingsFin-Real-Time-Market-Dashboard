@@ -1,22 +1,54 @@
+@import "tailwindcss/utilities.css" layer(utilities);
+
 :root {
-  --brand-ink: #282b2a;
-  --brand-green: #4eb648;
-  --brand-green-deep: #359f2f;
-  --brand-text: #7a7a7a;
-  --surface: #ffffff;
-  --surface-soft: #f7faf6;
-  --surface-green: #eef8ed;
-  --border: #dce7dc;
-  --danger: #f52738;
-  --focus: #4eb648;
-  --shadow: 0 22px 58px rgba(40, 43, 42, 0.11);
+  --brand-ink-rgb: 40 43 42;
+  --brand-green-rgb: 78 182 72;
+  --brand-green-deep-rgb: 53 159 47;
+  --brand-text-rgb: 122 122 122;
+  --black-rgb: 0 0 0;
+  --border-rgb: 220 231 220;
+  --danger-rgb: 245 39 56;
+  --layout-rgb: 245 247 243;
+  --status-offline-rgb: 255 111 123;
+  --surface-green-rgb: 238 248 237;
+  --white-rgb: 255 255 255;
+
+  --brand-ink: var(--wf-color-text, rgb(var(--brand-ink-rgb)));
+  --brand-green: var(--wf-color-primary, rgb(var(--brand-green-rgb)));
+  --brand-green-deep: var(--wf-color-primary-active, rgb(var(--brand-green-deep-rgb)));
+  --brand-text: var(--wf-color-text-description, rgb(var(--brand-text-rgb)));
+  --surface: var(--wf-color-bg-container, rgb(var(--white-rgb)));
+  --surface-green: rgb(var(--surface-green-rgb));
+  --border: var(--wf-color-border, rgb(var(--border-rgb)));
+  --danger: var(--wf-color-error, rgb(var(--danger-rgb)));
+  --shadow: var(--wf-box-shadow, 0 22px 58px rgb(var(--brand-ink-rgb) / 0.11));
+  --transparent: transparent;
+  --page-accent: rgb(var(--brand-green-rgb) / 0.1);
+  --hero-border: rgb(var(--brand-ink-rgb) / 0.16);
+  --hero-foreground: var(--surface);
+  --hero-gradient-end: rgb(var(--brand-ink-rgb) / 0.88);
+  --hero-gradient-start: rgb(var(--brand-ink-rgb) / 0.98);
+  --hero-logo-bg: var(--surface);
+  --hero-logo-shadow: 0 10px 28px rgb(var(--black-rgb) / 0.22);
+  --hero-text-muted: rgb(var(--white-rgb) / 0.74);
+  --status-bg: rgb(var(--white-rgb) / 0.08);
+  --status-border: rgb(var(--white-rgb) / 0.2);
+  --status-label: rgb(var(--white-rgb) / 0.62);
+  --status-offline: rgb(var(--status-offline-rgb));
+  --select-shadow: 0 8px 26px rgb(var(--brand-ink-rgb) / 0.05);
+  --session-bg: rgb(var(--white-rgb) / 0.74);
+  --session-shadow: 0 12px 30px rgb(var(--brand-ink-rgb) / 0.05);
+  --success-border: rgb(var(--brand-green-rgb) / 0.22);
+  --closed-accent: rgb(var(--brand-green-rgb) / 0.12);
+  --error-border: rgb(var(--danger-rgb) / 0.2);
+  --error-accent: rgb(var(--danger-rgb) / 0.07);
   --serif: "Bree Serif", Georgia, serif;
-  --sans: "Open Sans", Arial, sans-serif;
+  --sans: var(--wf-font-family, "Open Sans", Arial, sans-serif);
 
   color: var(--brand-ink);
   background:
-    linear-gradient(180deg, rgba(78, 182, 72, 0.1), transparent 320px),
-    #f5f7f3;
+    linear-gradient(180deg, var(--page-accent), var(--transparent) 320px),
+    var(--wf-color-bg-layout, rgb(var(--layout-rgb)));
   font-family: var(--sans);
   font-size: 15px;
   line-height: 26px;
@@ -36,415 +68,25 @@ body {
   margin: 0;
 }
 
-button,
-select {
-  font: inherit;
-}
-
-button {
-  cursor: pointer;
-}
-
-#root {
+#root,
+.ant-app {
   min-height: 100vh;
 }
 
-.dashboard {
-  width: min(1280px, calc(100% - 40px));
-  margin: 0 auto;
-  padding: 34px 0 42px;
+.ant-app {
+  color: var(--brand-ink);
+  font-family: var(--sans);
 }
 
 .brand-hero {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 24px;
-  border: 1px solid rgba(40, 43, 42, 0.08);
-  border-radius: 8px;
-  padding: 24px;
   background:
-    linear-gradient(135deg, rgba(40, 43, 42, 0.98), rgba(40, 43, 42, 0.88)),
+    linear-gradient(135deg, var(--hero-gradient-start), var(--hero-gradient-end)),
     var(--brand-ink);
   box-shadow: var(--shadow);
-  color: #ffffff;
 }
 
-.brand-lockup {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.brand-logo {
-  display: block;
-  flex: 0 0 clamp(148px, 16vw, 218px);
-  width: clamp(148px, 16vw, 218px);
-  height: auto;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
-  object-fit: contain;
-}
-
-.eyebrow {
-  margin: 0 0 6px;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-h1,
-h2,
-p {
-  margin: 0;
-}
-
-h1,
-h2 {
-  font-family: var(--serif);
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-h1 {
-  color: #ffffff;
-  font-size: 40px;
-  line-height: 1.12;
-}
-
-h2 {
-  color: var(--brand-ink);
-  font-size: 26px;
-  line-height: 1.18;
-}
-
-.hero-copy {
-  max-width: 620px;
-  margin-top: 9px;
-  color: rgba(255, 255, 255, 0.74);
-  font-size: 15px;
-}
-
-.status-card {
-  display: grid;
-  min-width: 180px;
-  align-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  padding: 14px 18px;
-  background: rgba(255, 255, 255, 0.08);
-  text-align: right;
-}
-
-.status-card span,
-.latest-badge span,
-.session-strip span,
-.closed-state__label {
-  color: var(--brand-text);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.status-card span {
-  color: rgba(255, 255, 255, 0.62);
-}
-
-.status-card strong {
-  color: var(--danger);
-  font-family: var(--serif);
-  font-size: 28px;
-  font-weight: 500;
-  line-height: 1.1;
-}
-
-.status-card.is-open strong {
-  color: var(--brand-green);
-}
-
-.toolbar {
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 18px;
-  margin: 20px 0 18px;
-}
-
-.field {
-  display: grid;
-  min-width: 220px;
-  gap: 7px;
-  color: var(--brand-text);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.field select {
-  min-width: 220px;
-  height: 48px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0 42px 0 14px;
-  background: var(--surface);
-  color: var(--brand-ink);
+.chart-type-select .ant-select-selector {
+  min-height: 42px;
+  box-shadow: var(--select-shadow);
   font-weight: 700;
-  box-shadow: 0 8px 26px rgba(40, 43, 42, 0.05);
-}
-
-.field select:focus,
-button:focus-visible {
-  outline: 3px solid rgba(78, 182, 72, 0.26);
-  outline-offset: 2px;
-}
-
-.session-strip {
-  display: grid;
-  flex: 1;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 12px 30px rgba(40, 43, 42, 0.05);
-  overflow: hidden;
-}
-
-.session-strip div {
-  display: grid;
-  gap: 2px;
-  padding: 12px 18px;
-}
-
-.session-strip div + div {
-  border-left: 1px solid var(--border);
-}
-
-.session-strip strong {
-  color: var(--brand-ink);
-  font-size: 15px;
-  line-height: 1.35;
-}
-
-.chart-panel,
-.closed-state,
-.state {
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.chart-panel {
-  padding: 22px;
-  position: relative;
-  overflow: hidden;
-}
-
-.chart-panel::before {
-  content: '';
-  position: absolute;
-  inset: 0 0 auto;
-  height: 4px;
-  background: linear-gradient(90deg, var(--brand-green), var(--brand-green-deep));
-}
-
-.chart-panel__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 8px;
-  padding-top: 2px;
-}
-
-.instrument-badge {
-  display: inline-flex;
-  margin-bottom: 8px;
-  border-radius: 999px;
-  padding: 3px 10px;
-  background: var(--surface-green);
-  color: var(--brand-green-deep);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-}
-
-.chart-panel__header p {
-  margin-top: 6px;
-  color: var(--brand-text);
-  font-size: 15px;
-}
-
-.latest-badge {
-  display: grid;
-  min-width: 170px;
-  border: 1px solid rgba(78, 182, 72, 0.22);
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: linear-gradient(180deg, #ffffff, var(--surface-green));
-  text-align: right;
-}
-
-.latest-badge strong {
-  display: block;
-  margin-top: 2px;
-  color: var(--brand-ink);
-  font-family: var(--serif);
-  font-size: 30px;
-  font-weight: 500;
-  line-height: 1.08;
-}
-
-.latest-badge small {
-  justify-self: end;
-  margin-top: 8px;
-  border-radius: 999px;
-  padding: 2px 8px;
-  background: var(--brand-green);
-  color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 1.45;
-}
-
-.chart {
-  width: 100%;
-  height: 540px;
-}
-
-.closed-state {
-  padding: 34px;
-  background:
-    linear-gradient(135deg, rgba(78, 182, 72, 0.12), transparent 52%),
-    #ffffff;
-}
-
-.closed-state h2 {
-  margin-top: 8px;
-}
-
-.closed-state p {
-  margin-top: 10px;
-  color: var(--brand-text);
-}
-
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  min-height: 210px;
-  padding: 28px;
-  color: var(--brand-text);
-  font-weight: 700;
-}
-
-.state--loading::before {
-  content: '';
-  width: 30px;
-  height: 30px;
-  border: 3px solid var(--border);
-  border-top-color: var(--brand-green);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.state--error {
-  color: var(--danger);
-}
-
-.state button {
-  border: 0;
-  border-radius: 6px;
-  padding: 10px 14px;
-  background: var(--brand-green);
-  color: #ffffff;
-  font-weight: 800;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-
-.state button:hover {
-  background: var(--brand-green-deep);
-  transform: translateY(-1px);
-}
-
-@media (max-width: 860px) {
-  .dashboard {
-    width: min(100% - 24px, 1280px);
-    padding: 20px 0 28px;
-  }
-
-  .brand-hero,
-  .toolbar,
-  .chart-panel__header {
-    display: grid;
-  }
-
-  .status-card {
-    min-width: 0;
-    text-align: left;
-  }
-
-  .session-strip {
-    grid-template-columns: 1fr;
-  }
-
-  .session-strip div + div {
-    border-top: 1px solid var(--border);
-    border-left: 0;
-  }
-
-  h1 {
-    font-size: 31px;
-  }
-
-  h2 {
-    font-size: 23px;
-  }
-
-  .field,
-  .field select,
-  .latest-badge {
-    width: 100%;
-  }
-
-  .latest-badge {
-    text-align: left;
-  }
-
-  .latest-badge small {
-    justify-self: start;
-  }
-
-  .chart {
-    height: 430px;
-  }
-}
-
-@media (max-width: 540px) {
-  .brand-lockup {
-    display: grid;
-    align-items: flex-start;
-  }
-
-  .brand-logo {
-    width: 168px;
-  }
-
-  h1 {
-    font-size: 28px;
-  }
 }

@@ -1,6 +1,6 @@
 # Frontend Code Analysis
 
-This file explains the frontend codebase from the point of view of a new engineer reading the project. The frontend is a Vite + React + TypeScript app that displays market status, fetches normalized history, subscribes to live Socket.IO updates, and renders the chart with ECharts.
+This file explains the frontend codebase from the point of view of a new engineer reading the project. The frontend is a Vite + React + TypeScript app that displays market status, fetches normalized history, subscribes to live Socket.IO updates, and renders the chart with ECharts. Ant Design is the base component system, Tailwind is used for layout utilities, and custom CSS is kept narrow for global tokens plus a few AntD/brand hooks.
 
 ## Frontend Mental Model
 
@@ -23,7 +23,8 @@ index.html
   -> /src/main.tsx
   -> React StrictMode
   -> App
-  -> QueryClientProvider
+  -> AppProviders
+  -> AntD ConfigProvider + AntD App + QueryClientProvider
   -> Dashboard
 ```
 
@@ -82,7 +83,7 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 | `frontend/.gitignore` | Excludes dependencies, build output, local env files, and generated artifacts. |
 | `frontend/.dockerignore` | Keeps Docker build context small by excluding local/generated files. |
 | `frontend/eslint.config.js` | ESLint config for React hooks, React refresh, TypeScript, browser globals, and ignored build files. |
-| `frontend/vite.config.ts` | Vite config with React plugin, Vitest jsdom setup, and raised chunk warning limit for ECharts. |
+| `frontend/vite.config.ts` | Vite config with React and Tailwind plugins, Vitest jsdom setup, and raised chunk warning limit for ECharts. |
 | `frontend/tsconfig.json` | TypeScript project references for app and Node/Vite config. |
 | `frontend/tsconfig.app.json` | TypeScript settings for browser app source. |
 | `frontend/tsconfig.node.json` | TypeScript settings for Vite/Node-side config files. |
@@ -104,9 +105,12 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/main.tsx` | React entrypoint. Imports global CSS and renders `<App />` inside `StrictMode`. |
-| `frontend/src/App.tsx` | Creates a TanStack Query client and provides it to the dashboard. |
-| `frontend/src/index.css` | Global visual system and all dashboard styling: WingsFin colors, fonts, layout, chart panel, status states, responsive behavior, and controls. |
+| `frontend/src/main.tsx` | React entrypoint. Imports AntD reset CSS, global CSS, and renders `<App />` inside `StrictMode`. |
+| `frontend/src/App.tsx` | Thin app component that wraps the dashboard with `AppProviders`. |
+| `frontend/src/providers/AppProviders.tsx` | Owns app-wide providers: AntD `ConfigProvider`, AntD `App`, and TanStack Query `QueryClientProvider`. |
+| `frontend/src/theme/designTokens.ts` | Central token map for brand colors, fonts, exact chart point colors, and shared theme values. |
+| `frontend/src/theme/antdTheme.ts` | Converts local design tokens into AntD theme configuration and CSS variables. |
+| `frontend/src/index.css` | Global CSS entry. Imports Tailwind utilities, defines CSS variables/global base rules, and keeps only the brand hero background plus one AntD Select internal selector. Most layout and component styling lives in JSX utilities/AntD semantic `classNames`. |
 
 ### API Layer
 
@@ -128,13 +132,13 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading, socket updates, backend timezone propagation, minute advancement, and layout. |
-| `frontend/src/components/MarketChart.tsx` | Builds ECharts options and renders the line chart, dotted yesterday-close line, colored points, latest heartbeat point, backend-timezone-aware tooltip/axis labels, and latest-value badge. |
-| `frontend/src/components/ChartTypeDropdown.tsx` | Select control for switching between `INDEX` and `STOCK`. |
-| `frontend/src/components/LatestValueBadge.tsx` | Shows the latest index/stock value in the chart header. |
-| `frontend/src/components/MarketClosedState.tsx` | Renders the closed-market state with configured hours and timezone. |
-| `frontend/src/components/LoadingState.tsx` | Shared loading state component. |
-| `frontend/src/components/ErrorState.tsx` | Shared error state component with retry button. |
+| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading, socket updates, backend timezone propagation, minute advancement, and the Tailwind/AntD dashboard shell. |
+| `frontend/src/components/MarketChart.tsx` | Builds ECharts options and renders the AntD chart card, dotted yesterday-close line, colored points, latest heartbeat point, backend-timezone-aware tooltip/axis labels, and latest-value badge. Uses AntD theme tokens for non-spec chart colors. |
+| `frontend/src/components/ChartTypeDropdown.tsx` | AntD Select control for switching between `INDEX` and `STOCK`. |
+| `frontend/src/components/LatestValueBadge.tsx` | AntD Card/Statistic/Tag showing the latest index/stock value in the chart header. |
+| `frontend/src/components/MarketClosedState.tsx` | AntD Card/Typography closed-market state with configured hours and timezone. |
+| `frontend/src/components/LoadingState.tsx` | Shared AntD Card/Spin loading state component. |
+| `frontend/src/components/ErrorState.tsx` | Shared AntD Card/Alert/Button error state component with retry action. |
 
 ### Types
 
@@ -146,7 +150,7 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/utils/chartColors.ts` | Defines exact required chart point colors and computes `above`, `below`, or `equal` status against the reference value. |
+| `frontend/src/utils/chartColors.ts` | Exports exact required chart point colors from `theme/designTokens.ts` and computes `above`, `below`, or `equal` status against the reference value. |
 | `frontend/src/utils/time.ts` | Defines minute math and timezone-aware display formatting. `Asia/Dhaka` is the fallback, but chart paths pass the backend timezone explicitly. |
 | `frontend/src/utils/tooltip.ts` | Formats ECharts tooltip HTML with symbol, timezone-aware time, value, reference, and change. |
 | `frontend/src/utils/mergeLiveUpdate.ts` | Merges live payloads into the point series, replaces same-minute points, inserts out-of-order updates chronologically, fills gaps, and advances the line when no new tick arrives. |
@@ -199,17 +203,20 @@ It also picks the active symbol. If `/api/symbols` has not returned yet, it fall
 
 ## Styling And Branding
 
-The visual system is in `frontend/src/index.css`.
+The current styling split is intentional:
 
-Important brand values:
+- AntD owns base components, interaction states, cards, select, alert, statistic, tags, loading, empty, and app-level tokens.
+- Tailwind utilities own most component layout, spacing, sizing, alignment, and responsive behavior directly in JSX.
+- `frontend/src/index.css` owns global CSS variables, document/app base rules, the layered hero background, and the AntD Select internal selector that cannot be reached cleanly through component props.
+- ECharts options stay in `MarketChart.tsx` because chart grid, axis, tooltip, mark line, and series colors are configured through JavaScript.
 
-- Primary ink: `#282B2A`
-- Green: `#4EB648`
-- Deep green: `#359F2F`
-- Text gray: `#7A7A7A`
+Brand values are centralized in `frontend/src/theme/designTokens.ts`. The required chart point colors are also defined there and are still validated by `chartColors.test.ts`:
+
 - Point above reference: `#7327F5`
 - Point below reference: `#F52738`
 - Point equal reference: `#EE27F5`
+
+`frontend/src/theme/antdTheme.ts` maps those local tokens into AntD theme tokens and enables AntD CSS variables with the `wf` prefix. `frontend/src/index.css` reads those variables where possible, then provides project-level semantic variables like `--brand-ink`, `--hero-foreground`, `--session-bg`, and `--error-accent`.
 
 Fonts are loaded in `index.html`:
 
@@ -217,6 +224,15 @@ Fonts are loaded in `index.html`:
 - Body/UI text: Open Sans
 
 The real logo lives at `frontend/public/logo.webp` and is referenced as `/logo.webp`, which works in both Vite dev and production static builds.
+
+### CSS Boundary
+
+Do not treat `index.css` as the place for all component styling. Add styles in this order:
+
+1. Prefer AntD props, semantic `classNames`, and theme tokens.
+2. Use Tailwind utility classes for layout, spacing, dimensions, responsive behavior, and simple token-backed colors.
+3. Use `index.css` only for global tokens/base rules, pseudo-elements, or unavoidable nested vendor selectors.
+4. Keep ECharts visual behavior in `MarketChart.tsx` chart options.
 
 ## Environment Variables
 
@@ -276,9 +292,12 @@ The Vite dev server normally runs at `http://localhost:5173`.
 | Need | Change Here |
 |---|---|
 | Change API host | `.env` or `.env.example`, values consumed by `src/api/client.ts`. |
-| Change dashboard layout/visual style | `src/index.css` and `src/components/Dashboard.tsx`. |
+| Change app/provider setup | `src/providers/AppProviders.tsx`. |
+| Change AntD theme tokens | `src/theme/designTokens.ts` and `src/theme/antdTheme.ts`. |
+| Change dashboard layout/spacing | Tailwind/AntD `className` and `classNames` usage in `src/components/*`, especially `Dashboard.tsx` and `MarketChart.tsx`. |
+| Change global CSS variables or unavoidable nested selectors | `src/index.css`. |
 | Change chart options | `src/components/MarketChart.tsx`. |
-| Change point colors | `src/utils/chartColors.ts` and related tests. |
+| Change point colors | `src/theme/designTokens.ts`, `src/utils/chartColors.ts`, and related tests. |
 | Change live merge behavior | `src/utils/mergeLiveUpdate.ts` and related tests. |
 | Change time display | `src/utils/time.ts` and related tests. |
 | Add a new API call | Add to `src/api/*`, then wrap with a hook if React Query caching is needed. |

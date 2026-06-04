@@ -1,14 +1,28 @@
+import { Card, Typography } from 'antd'
+
 import type { MarketStatusResponse } from '../types/market'
 
 export function MarketClosedState({ status }: { status: MarketStatusResponse }) {
   return (
-    <section className="closed-state" aria-live="polite">
-      <span className="closed-state__label">Market Status</span>
-      <h2>Market is currently closed.</h2>
-      <p>
+    <Card
+      aria-live="polite"
+      className="!border-[var(--border)] !bg-[linear-gradient(135deg,var(--closed-accent),var(--transparent)_52%),var(--surface)] shadow-[var(--shadow)]"
+      classNames={{ body: 'p-6' }}
+      variant="outlined"
+    >
+      <Typography.Text className="text-xs font-extrabold uppercase tracking-[0.04em] text-[var(--brand-text)]">
+        Market Status
+      </Typography.Text>
+      <Typography.Title
+        className="!m-0 !mt-2 ![font-family:var(--serif)] !text-[24px] !font-medium !leading-[1.14] !text-[var(--brand-ink)] max-[860px]:!text-[22px]"
+        level={2}
+      >
+        Market is currently closed.
+      </Typography.Title>
+      <Typography.Paragraph className="!m-0 !mt-2 !text-[var(--brand-text)]">
         Market hours: {status.marketOpenTime} - {status.marketCloseTime}{' '}
         {status.timezone}
-      </p>
-    </section>
+      </Typography.Paragraph>
+    </Card>
   )
 }

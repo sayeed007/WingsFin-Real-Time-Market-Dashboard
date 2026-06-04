@@ -1,10 +1,7 @@
 import type { PointStatus } from '../types/market'
+import { pointColors } from '../theme/designTokens'
 
-export const POINT_COLORS: Record<PointStatus, string> = {
-  above: '#7327F5',
-  below: '#F52738',
-  equal: '#EE27F5',
-}
+export const POINT_COLORS: Record<PointStatus, string> = pointColors
 
 export function statusForValue(value: number, reference: number): PointStatus {
   if (Math.abs(value - reference) < 0.0001) {
