@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wingsfin}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-wingsfin}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-4000}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/wingsfin}
+      MARKET_TIMEZONE: ${MARKET_TIMEZONE:-Asia/Dhaka}
+      MARKET_OPEN_TIME: ${MARKET_OPEN_TIME:-10:00}
+      MARKET_CLOSE_TIME: ${MARKET_CLOSE_TIME:-14:30}
+      DEFAULT_INDEX_ID: ${DEFAULT_INDEX_ID:-DSEX}
+      DEFAULT_STOCK_TRADE_CODE: ${DEFAULT_STOCK_TRADE_CODE:-GP}
+      INDEX_YESTERDAY_CLOSE: ${INDEX_YESTERDAY_CLOSE:-5200}
+      STOCK_YESTERDAY_CLOSE: ${STOCK_YESTERDAY_CLOSE:-238.88}
+      SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-true}
+      SIMULATOR_MIN_INTERVAL_MS: ${SIMULATOR_MIN_INTERVAL_MS:-300}
+      SIMULATOR_MAX_INTERVAL_MS: ${SIMULATOR_MAX_INTERVAL_MS:-3000}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
+    ports:
+      - "4000:4000"
+    command: >
+      sh -c "npx prisma migrate deploy &&
+             if [ \"$${SEED_ON_STARTUP:-true}\" = 'true' ]; then npm run seed; fi &&
+             npm start"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:4000}
+        VITE_SOCKET_URL: ${VITE_SOCKET_URL:-http://localhost:4000}
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

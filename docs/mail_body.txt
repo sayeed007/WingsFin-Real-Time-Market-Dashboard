@@ -1,0 +1,52 @@
+Hi Sayeed Hossen Bappy,
+
+I hope this finds you well.
+
+Our WingsFin Talent Acquisition Team shared your application with me, and I would like to personally congratulate you on being selected to move forward to the next stage of our hiring process.
+
+Congratulations!
+
+At this stage, we would like to further evaluate your technical skills, architectural thinking, problem-solving approach, and engineering practices through a take-home assignment.
+
+The deadline to complete and submit the assignment is 13th June at 11:59 PM. However, I would strongly recommend completing and submitting it this weekend, if possible, so that we can invite you to our office next week for a panel discussion, which will be the next and final stage of our hiring process.
+
+Could you please let me know if you think you will be able to submit it this weekend? If you definitely need until the deadline, that is completely fine as well.
+What To Expect:
+The assignment simulates a real-world engineering challenge involving the design and implementation of a scalable real-time data visualization system.
+
+The project includes both frontend and backend components and is intended to assess:
+System design and architecture decisions
+Backend development using Node.js
+Frontend development using React.js
+Database design using PostgreSQL and its ecosystem
+Real-time data handling and performance considerations
+Code quality, testing, documentation, and deployment practices
+
+Instructions:
+Please read the attached assignment document carefully before starting the work.
+You may use publicly available documentation, libraries, and development tools as you normally would in a professional work environment.
+The submitted work should be your own original implementation.
+Ensure that your solution includes all required deliverables mentioned in the assignment document.
+Your submission should be shared via a GitHub repository along with the required documentation and a demo video.
+A clear README with setup and testing instructions is required.
+Please ensure your project can be reviewed and executed without additional clarification whenever possible.
+
+Please note: You should be well-prepared to discuss your implementation during subsequent interview stages. We expect candidates to have a strong understanding of their submitted solution, including architectural decisions, trade-offs, technical choices, and implementation details.
+
+Submission:
+Submit your completed assignment by replying directly to this email using "Reply all".
+Include links to your GitHub repository, demo video, and any other required deliverables specified in the assignment document.
+
+Deadline:
+Please complete and submit your assignment before 13th June @ 11:59 PM. Late submissions may not be considered.
+If you have any questions or require any clarification regarding the assignment, please do not hesitate to reach out.
+
+We look forward to reviewing your solution and inviting you to our office for the next round once you complete and submit your assignment.
+
+Best of luck! 🙂
+
+Best,
+Khalid
+
+Khalid Bin Ayaz Khan
+Managing Director

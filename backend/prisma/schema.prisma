@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SymbolType {
+  INDEX
+  STOCK
+}
+
+model Symbol {
+  id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  symbol         String     @unique @db.VarChar(32)
+  type           SymbolType
+  displayName    String?    @map("display_name") @db.VarChar(128)
+  yesterdayClose Decimal    @map("yesterday_close") @db.Decimal(14, 4)
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  ticks          MarketTick[]
+
+  @@map("symbols")
+}
+
+model MarketTick {
+  id             BigInt     @id @default(autoincrement())
+  symbol         String     @db.VarChar(32)
+  type           SymbolType
+  eventTime      DateTime   @map("event_time") @db.Timestamptz(6)
+  value          Decimal    @db.Decimal(14, 4)
+  yesterdayClose Decimal    @map("yesterday_close") @db.Decimal(14, 4)
+  rawPayload     Json       @map("raw_payload")
+  createdAt      DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  instrument     Symbol     @relation(fields: [symbol], references: [symbol])
+
+  @@index([symbol, eventTime(sort: Desc)], map: "idx_market_ticks_symbol_time")
+  @@index([eventTime(sort: Desc)], map: "idx_market_ticks_event_time")
+  @@map("market_ticks")
+}
