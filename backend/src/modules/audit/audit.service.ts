@@ -111,7 +111,9 @@ export type AuditQueryFilters = {
 export async function queryAuditEvents(
   filters: AuditQueryFilters = {},
 ): Promise<AuditEvent[]> {
-  const limit = Math.min(filters.limit ?? 100, 500);
+  const limit = Number.isInteger(filters.limit) && (filters.limit ?? 0) > 0
+    ? Math.min(filters.limit as number, 500)
+    : 100;
 
   const rows = await prisma.auditLog.findMany({
     where: {
@@ -140,9 +142,9 @@ export async function queryAuditEvents(
     severity: row.severity,
     symbol: row.symbol ?? undefined,
     symbolType: row.symbolType ?? undefined,
-    value: row.value ? Number(row.value) : undefined,
+    value: row.value !== null ? Number(row.value) : undefined,
     durationMs: row.durationMs ?? undefined,
-    meta: row.meta as Record<string, unknown> | undefined,
+    meta: row.meta === null ? undefined : row.meta as Record<string, unknown>,
   }));
 }
 

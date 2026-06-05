@@ -1,11 +1,26 @@
 import { rateLimit } from 'express-rate-limit';
 import { Router } from 'express';
 
-import { asyncHandler } from '@src/utils/http';
 import { queryAuditEvents } from '@src/modules/audit/audit.service';
 import type { AuditCategory, AuditSeverity } from '@src/modules/audit/audit.service';
+import { asyncHandler, HttpError } from '@src/utils/http';
 
 export const auditRouter = Router();
+
+const AUDIT_CATEGORIES = [
+  'MARKET_DATA',
+  'SIMULATOR',
+  'REALTIME',
+  'SESSION',
+  'SYSTEM',
+  'API',
+] as const satisfies readonly AuditCategory[];
+
+const AUDIT_SEVERITIES = [
+  'INFO',
+  'WARN',
+  'ERROR',
+] as const satisfies readonly AuditSeverity[];
 
 const auditReadLimiter = rateLimit({
   windowMs: 60_000,
@@ -16,6 +31,61 @@ const auditReadLimiter = rateLimit({
 });
 
 auditRouter.use(auditReadLimiter);
+
+function getSingleQueryValue(name: string, value: unknown): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  throw new HttpError(400, `${name} must be a single query value.`);
+}
+
+function parseAuditCategory(value: string | undefined): AuditCategory | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (AUDIT_CATEGORIES.includes(value as AuditCategory)) {
+    return value as AuditCategory;
+  }
+  throw new HttpError(400, 'category must be one of MARKET_DATA, SIMULATOR, REALTIME, SESSION, SYSTEM, API.');
+}
+
+function parseAuditSeverity(value: string | undefined): AuditSeverity | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (AUDIT_SEVERITIES.includes(value as AuditSeverity)) {
+    return value as AuditSeverity;
+  }
+  throw new HttpError(400, 'severity must be one of INFO, WARN, ERROR.');
+}
+
+function parseIsoDate(name: string, value: string | undefined): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new HttpError(400, `${name} must be a valid ISO 8601 date-time.`);
+  }
+  return parsed.toISOString();
+}
+
+function parseLimit(value: string | undefined): number {
+  if (value === undefined) {
+    return 100;
+  }
+  if (!/^\d+$/.test(value)) {
+    throw new HttpError(400, 'limit must be an integer from 1 to 500.');
+  }
+  const parsed = Number(value);
+  if (parsed < 1 || parsed > 500) {
+    throw new HttpError(400, 'limit must be an integer from 1 to 500.');
+  }
+  return parsed;
+}
 
 /**
  * @swagger
@@ -82,12 +152,16 @@ auditRouter.use(auditReadLimiter);
 auditRouter.get(
   '/events',
   asyncHandler(async (req, res) => {
-    const category = req.query.category as AuditCategory | undefined;
-    const severity = req.query.severity as AuditSeverity | undefined;
-    const symbol = typeof req.query.symbol === 'string' ? req.query.symbol : undefined;
-    const from = typeof req.query.from === 'string' ? req.query.from : undefined;
-    const to = typeof req.query.to === 'string' ? req.query.to : undefined;
-    const limit = req.query.limit ? Number(req.query.limit) : 100;
+    const category = parseAuditCategory(getSingleQueryValue('category', req.query.category));
+    const severity = parseAuditSeverity(getSingleQueryValue('severity', req.query.severity));
+    const symbol = getSingleQueryValue('symbol', req.query.symbol);
+    const from = parseIsoDate('from', getSingleQueryValue('from', req.query.from));
+    const to = parseIsoDate('to', getSingleQueryValue('to', req.query.to));
+    const limit = parseLimit(getSingleQueryValue('limit', req.query.limit));
+
+    if (from && to && new Date(from) > new Date(to)) {
+      throw new HttpError(400, 'from must be earlier than or equal to to.');
+    }
 
     const events = await queryAuditEvents({ category, severity, symbol, from, to, limit });
     res.json({ events, count: events.length });

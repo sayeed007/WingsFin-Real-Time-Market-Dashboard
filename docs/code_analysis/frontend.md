@@ -119,15 +119,15 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/hooks/useMarketStatus.ts` | Wraps TanStack Query for market status and symbol list. Status refetches every 30 seconds; symbols cache for 5 minutes. |
+| `frontend/src/hooks/useMarketStatus.ts` | Wraps TanStack Query for market status and symbol list. Status re-fetches every 30 seconds; symbols cache for 5 minutes. |
 | `frontend/src/hooks/useChartHistory.ts` | Wraps TanStack Query for chart history by `type` and `symbol`; only enabled when market is open. |
-| `frontend/src/hooks/useMarketSocket.ts` | Opens Socket.IO connection, subscribes to the current symbol room, forwards matching updates, handles `market:closed`, refetches history on socket reconnect to heal any missed gap, and disconnects on cleanup. |
+| `frontend/src/hooks/useMarketSocket.ts` | Opens Socket.IO connection, subscribes to the current symbol room, forwards matching updates, handles `market:closed`, re-fetches history on socket reconnect to heal any missed gap, and disconnects on cleanup. |
 
 ### Components
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading/error/empty branching, and delegates shell/header/session/live-chart rendering to dashboard subcomponents. |
+| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading/error/empty branching, and delegates shell/header/session/live-chart rendering to dashboard sub-components. |
 | `frontend/src/components/MarketChart.tsx` | Builds ECharts options and renders the AntD chart card, dotted yesterday-close line, colored points, latest heartbeat point, backend-timezone-aware tooltip/axis labels, and latest-value badge. Uses AntD theme tokens for non-spec chart colors. |
 | `frontend/src/components/ChartTypeDropdown.tsx` | AntD Select control for switching between `INDEX` and `STOCK`. |
 | `frontend/src/components/LatestValueBadge.tsx` | AntD Card/Statistic showing the latest index/stock value in the chart header, with the `Live` tag placed inline beside the statistic title. |
@@ -135,7 +135,7 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 | `frontend/src/components/LoadingState.tsx` | Shared AntD Card/Spin loading state component. |
 | `frontend/src/components/ErrorState.tsx` | Shared AntD Card/Alert/Button error state component with retry action. |
 
-### Dashboard Subcomponents
+### Dashboard Sub-components
 
 | File | Responsibility |
 |---|---|
@@ -265,8 +265,8 @@ When the dropdown changes:
 
 1. `chartType` state changes.
 2. `selectedSymbol` recalculates from `/api/symbols` or fallback values.
-3. `useChartHistory()` refetches with a new query key.
-4. `LiveChartSection` remounts because its `key` includes type, symbol, and the query's `dataUpdatedAt` (which changes on every fetch, including switches and reconnect refetches).
+3. `useChartHistory()` re-fetches with a new query key.
+4. `LiveChartSection` remounts because its `key` includes type, symbol, and the query's `dataUpdatedAt` (which changes on every fetch, including switches and reconnect re-fetches).
 5. `useMarketSocket()` opens a new subscription for the selected symbol.
 
 ### Live Merge Rules

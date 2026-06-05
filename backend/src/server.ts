@@ -1,5 +1,6 @@
 import compression from 'compression';
 import cors from 'cors';
+import { randomUUID } from 'crypto';
 import express, { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -11,6 +12,18 @@ import { swaggerSpec } from '@src/config/swagger';
 import { logAuditEvent } from '@src/modules/audit/audit.service';
 import BaseRouter from '@src/routes/apiRouter';
 import { HttpError } from '@src/utils/http';
+
+type AuditResponseLocals = {
+  audit?: {
+    requestId: string;
+    startedAt: number;
+    error?: {
+      name: string;
+      message?: string;
+      statusCode: number;
+    };
+  };
+};
 
 export function createApp(): express.Express {
   const app = express();
@@ -42,11 +55,20 @@ export function createApp(): express.Express {
   }
 
   // Audit middleware — log every API request
-  app.use('/api', (req: Request, res: Response, next: NextFunction) => {
-    const start = Date.now();
+  app.use('/api', (req: Request, res: Response<unknown, AuditResponseLocals>, next: NextFunction) => {
+    const requestId = randomUUID();
+    res.locals.audit = {
+      requestId,
+      startedAt: Date.now(),
+    };
+    res.setHeader('X-Request-Id', requestId);
+
     res.on('finish', () => {
-      const durationMs = Date.now() - start;
+      const durationMs = Date.now() - (res.locals.audit?.startedAt ?? Date.now());
       const isError = res.statusCode >= 400;
+      const error = res.locals.audit?.error;
+      const userAgent = req.headers['user-agent'];
+
       logAuditEvent({
         category: 'API',
         action: isError ? 'API_ERROR' : 'API_REQUEST',
@@ -54,10 +76,12 @@ export function createApp(): express.Express {
         severity: res.statusCode >= 500 ? 'ERROR' : res.statusCode >= 400 ? 'WARN' : 'INFO',
         durationMs,
         meta: {
+          requestId,
           method: req.method,
-          path: req.path,
+          path: `${req.baseUrl}${req.path}`,
           statusCode: res.statusCode,
-          userAgent: req.headers['user-agent'],
+          ...(typeof userAgent === 'string' ? { userAgent } : {}),
+          ...(error ? { error } : {}),
         },
       });
     });
@@ -66,13 +90,20 @@ export function createApp(): express.Express {
 
   app.use('/api', BaseRouter);
 
-  app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: Error, _req: Request, res: Response<unknown, AuditResponseLocals>, _next: NextFunction) => {
     if (res.headersSent) {
       return;
     }
 
     const status = err instanceof HttpError ? err.status : 500;
     const message = status === 500 ? 'Internal server error.' : err.message;
+    if (res.locals.audit) {
+      res.locals.audit.error = {
+        name: err.name,
+        statusCode: status,
+        ...(status === 500 ? {} : { message: err.message }),
+      };
+    }
     if (env.nodeEnv !== 'test') {
       logger.error(err, 'Unhandled request error');
     }

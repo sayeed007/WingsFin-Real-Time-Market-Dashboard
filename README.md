@@ -31,8 +31,11 @@ Open:
 - Frontend: http://localhost:5173
 - Backend health: http://localhost:4000/api/health
 - Market status: http://localhost:4000/api/market/status
+- API docs: http://localhost:4000/api/docs
+- Audit trail: http://localhost:4000/api/audit/events
 
 The backend container runs Prisma migrations and seeds non-uniform historical data before starting.
+API docs and audit reads are intentionally open during the development phase and should be protected once RBAC is implemented.
 
 ## Local Development
 
