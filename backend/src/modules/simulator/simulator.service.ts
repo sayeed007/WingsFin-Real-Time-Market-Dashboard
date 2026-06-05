@@ -10,10 +10,7 @@ import type {
   MarketUpdatePayload,
   SymbolType,
 } from '@src/modules/market/market.types';
-import {
-  emitMarketClosed,
-  emitMarketUpdate,
-} from '@src/modules/realtime/socket.server';
+import { emitMarketUpdate } from '@src/modules/realtime/socket.server';
 import { ensureDefaultSymbols } from '@src/modules/symbols/symbols.service';
 import { compareToReference, roundMarketValue } from '@src/utils/compare';
 import { HttpError } from '@src/utils/http';
@@ -59,8 +56,6 @@ const states: SimulatorState[] = [
     maxDelta: 0.1,
   },
 ];
-
-let closedEventEmitted = false;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -203,18 +198,12 @@ export async function recordStockUpdate(
 
 async function tick(state: SimulatorState): Promise<void> {
   try {
+    // The market clock owns the `market:closed` broadcast; the simulator just
+    // stops generating data while the market is closed.
     if (!isMarketOpen()) {
-      if (!closedEventEmitted) {
-        emitMarketClosed({
-          message: 'Market is now closed.',
-          closedAt: toIso(DateTime.utc().setZone(env.marketTimezone)),
-        });
-        closedEventEmitted = true;
-      }
       return;
     }
 
-    closedEventEmitted = false;
     state.value = randomWalk(state);
     const eventTime = DateTime.utc();
 

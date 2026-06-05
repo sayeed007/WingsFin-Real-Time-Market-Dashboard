@@ -10,7 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "seed": "tsx prisma/seed.ts",
+    "seed": "tsx src/seed.runner.ts",
     "seed:prod": "cross-env DOTENV_CONFIG_PATH=./.env node -r dotenv/config -r module-alias/register ./dist/seed.runner.js",
     "start": "cross-env DOTENV_CONFIG_PATH=./.env node -r dotenv/config -r module-alias/register ./dist/main.js",
     "test": "cross-env NODE_ENV=test vitest",

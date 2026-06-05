@@ -10,10 +10,12 @@ export function useMarketSocket(params: {
   symbol: string
   onUpdate: (payload: MarketUpdatePayload) => void
   onClosed: () => void
+  onReconnect?: () => void
 }) {
-  const { enabled, onClosed, onUpdate, symbol, type } = params
+  const { enabled, onClosed, onReconnect, onUpdate, symbol, type } = params
   const onUpdateRef = useRef(params.onUpdate)
   const onClosedRef = useRef(params.onClosed)
+  const onReconnectRef = useRef(params.onReconnect)
 
   useEffect(() => {
     onUpdateRef.current = onUpdate
@@ -22,6 +24,10 @@ export function useMarketSocket(params: {
   useEffect(() => {
     onClosedRef.current = onClosed
   }, [onClosed])
+
+  useEffect(() => {
+    onReconnectRef.current = onReconnect
+  }, [onReconnect])
 
   useEffect(() => {
     if (!enabled || !symbol) {
@@ -37,6 +43,10 @@ export function useMarketSocket(params: {
       socket.emit('subscribe', { type, symbol })
     }
 
+    const handleReconnect = () => {
+      onReconnectRef.current?.()
+    }
+
     socket.on('connect', subscribe)
     socket.on('market:update', (payload: MarketUpdatePayload) => {
       if (payload.type === type && payload.symbol === symbol) {
@@ -46,11 +56,15 @@ export function useMarketSocket(params: {
     socket.on('market:closed', () => {
       onClosedRef.current()
     })
+    // Manager-level reconnect: re-fetch authoritative history to heal any gap
+    // missed while the socket was down (subscribe also re-fires via 'connect').
+    socket.io.on('reconnect', handleReconnect)
 
     return () => {
       socket.off('connect', subscribe)
       socket.off('market:update')
       socket.off('market:closed')
+      socket.io.off('reconnect', handleReconnect)
       socket.disconnect()
     }
   }, [enabled, symbol, type])

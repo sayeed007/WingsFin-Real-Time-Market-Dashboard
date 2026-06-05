@@ -5,7 +5,7 @@ const config = defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    setupFiles: ['dotenv/config'],
+    setupFiles: ['./tests/vitest.setup.ts'],
     isolate: true,
   },
   resolve: {

@@ -22,8 +22,9 @@ The important design choice is that the database stores raw ticks, not precomput
 3. `attachSocketServer()` attaches Socket.IO to the same HTTP server.
 4. `waitForDatabase()` retries `SELECT 1` until PostgreSQL is ready.
 5. `ensureDefaultSymbols()` upserts the default `DSEX` index and `GP` stock symbols.
-6. If `SIMULATOR_ENABLED=true`, `startSimulator()` hydrates each simulator state from the latest tick in the current session, then begins irregular random updates.
-7. The HTTP server listens on `PORT`, default `4000`.
+6. `startMarketClock()` starts a 1-second heartbeat that watches for the open-to-closed transition and emits `market:closed` to all clients. It runs regardless of the simulator, so the closed signal fires even when `SIMULATOR_ENABLED=false`.
+7. If `SIMULATOR_ENABLED=true`, `startSimulator()` hydrates each simulator state from the latest tick in the current session, then begins irregular random updates.
+8. The HTTP server listens on `PORT`, default `4000`.
 
 ### Docker Startup
 
@@ -35,7 +36,7 @@ npx prisma migrate deploy
   -> npm start
 ```
 
-Local development can still use `npm run seed`, which runs `prisma/seed.ts` through `tsx`.
+Local development can still use `npm run seed`, which runs `src/seed.runner.ts` through `tsx`.
 
 The Prisma CLI package is a production dependency because Docker Compose runs `npx prisma migrate deploy` at container startup.
 
@@ -87,7 +88,7 @@ When the market is closed:
 - `GET /api/market/status` returns `isOpen: false`.
 - `GET /api/chart/history` returns an empty `points` array and `latestValue` as yesterday close.
 - The simulator does not create new ticks.
-- The simulator emits one `market:closed` event when it detects closure.
+- The market clock emits one `market:closed` event on the open-to-closed transition. This is independent of the simulator, so it still fires when `SIMULATOR_ENABLED=false`.
 
 ## API Surface
 
@@ -152,13 +153,12 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 |---|---|
 | `backend/prisma/schema.prisma` | Defines Prisma generator, PostgreSQL datasource, `SymbolType` enum, `Symbol` model, and `MarketTick` model. |
 | `backend/prisma/migrations/20260603165000_init/migration.sql` | SQL migration that creates the initial database schema and indexes. |
-| `backend/prisma/seed.ts` | Local-development seed entrypoint. It delegates to shared seed logic in `src/seed.ts` and runs through `tsx`. |
 
 ## Source Entry Files And Responsibilities
 
 | File | Responsibility |
 |---|---|
-| `backend/src/main.ts` | Process entrypoint. Creates HTTP server, attaches Socket.IO, waits for DB, ensures symbols, starts simulator, listens on port, and handles guarded graceful shutdown. |
+| `backend/src/main.ts` | Process entrypoint. Creates HTTP server, attaches Socket.IO, waits for DB, ensures symbols, starts the market clock, starts the simulator, listens on port, and handles guarded graceful shutdown. |
 | `backend/src/server.ts` | Creates the Express app. Adds CORS, compression, JSON body parsing, URL encoding, Helmet, dev logging, API router, and central error handler. |
 | `backend/src/routes/apiRouter.ts` | Mounts all domain routers under `/api`: health, market, symbols, chart, and simulate. |
 | `backend/src/config/env.ts` | Loads `.env`, parses all config values, validates market time format, and exposes the typed `env` object. |
@@ -183,6 +183,7 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 |---|---|
 | `backend/src/modules/market/market.routes.ts` | Defines `GET /api/market/status` and applies a 5-second HTTP cache header. |
 | `backend/src/modules/market/market.service.ts` | Computes market open/closed status from configured open/close time and timezone. |
+| `backend/src/modules/market/market.clock.ts` | 1-second server heartbeat that emits `market:closed` on the open-to-closed transition, independent of the simulator. Started/stopped from `main.ts`. |
 | `backend/src/modules/market/market.types.ts` | Defines backend response and payload types shared across modules. |
 
 ### Realtime Module
@@ -197,7 +198,7 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 | File | Responsibility |
 |---|---|
 | `backend/src/modules/simulator/simulator.routes.ts` | Defines manual simulation endpoints, validates request payloads, and rate-limits simulation calls to 120/minute. |
-| `backend/src/modules/simulator/simulator.service.ts` | Owns random simulator state, latest-tick hydration on startup, random intervals, manual update recording, market-hours enforcement, stable reference-close handling, DB tick insertion, chart cache invalidation, and Socket.IO emission. |
+| `backend/src/modules/simulator/simulator.service.ts` | Owns random simulator state, latest-tick hydration on startup, random intervals, manual update recording, market-hours enforcement, stable reference-close handling, DB tick insertion, chart cache invalidation, and `market:update` emission. The `market:closed` event is owned by the market clock, not the simulator. |
 
 ### Symbols Module
 
@@ -226,6 +227,7 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 
 | File | Responsibility |
 |---|---|
+| `backend/tests/vitest.setup.ts` | Vitest setup file. Loads `.env`, then pins `MARKET_OPEN_TIME`/`MARKET_CLOSE_TIME`/timezone so market tests stay hermetic regardless of a developer's local `.env` overrides. |
 | `backend/tests/cache.test.ts` | Verifies TTL cache behavior, keyed cache behavior, expiry, and invalidation. |
 | `backend/tests/chart.normalizer.test.ts` | Verifies minute normalization, forward-fill behavior, latest tick per minute, session boundaries, and point status. |
 | `backend/tests/market.service.test.ts` | Verifies market open/closed calculations and boundary behavior. |
@@ -236,6 +238,10 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 ### Market Time
 
 The backend treats `MARKET_TIMEZONE`, `MARKET_OPEN_TIME`, and `MARKET_CLOSE_TIME` as the source of truth. `getMarketSession()` builds the current session for the current date in that timezone.
+
+### Market Closed Signal
+
+A dedicated market clock (`market.clock.ts`) runs a 1-second heartbeat and emits a single `market:closed` event to all clients on the open-to-closed transition. It is started in `main.ts` independently of the simulator, so the "live updates stop when the market closes" requirement holds even when `SIMULATOR_ENABLED=false`. While the market is closed the simulator simply stops generating ticks; it no longer owns the closed broadcast.
 
 ### Chart Normalization
 
@@ -255,7 +261,7 @@ The chart always receives one point per minute from market open to the current m
 
 ### Error Handling
 
-Routes use `asyncHandler()` so rejected promises reach the Express error middleware. Known business errors can throw `HttpError(status, message)`. Unknown errors become `500` with the generic message `Internal server error.`
+Routes use `asyncHandler()` so rejected promises reach the Express error middleware. Known business errors can throw `HttpError(status, message)`. For example, requesting chart history for an unknown symbol throws `HttpError(404, ...)` rather than surfacing as a 500. Unknown/unexpected errors become `500` with the generic message `Internal server error.`
 
 ### Shutdown
 
@@ -272,7 +278,7 @@ Routes use `asyncHandler()` so rejected promises reach the Express error middlew
 
 ### Seed Runtime Split
 
-- `npm run seed` is for local development and uses `tsx prisma/seed.ts`.
+- `npm run seed` is for local development and uses `tsx src/seed.runner.ts`.
 - `npm run seed:prod` is for the compiled runtime and executes `dist/seed.runner.js` with Node, `dotenv/config`, and `module-alias/register`.
 - Docker Compose uses `seed:prod` because the backend runtime image omits dev dependencies.
 
@@ -301,7 +307,7 @@ On Windows, stop any running backend dev server before `npm run build`, because 
 |---|---|
 | Change market hours/timezone | `.env`, `backend/.env.example`, and `src/config/env.ts` defaults if needed. |
 | Add a new default instrument | `src/modules/symbols/symbols.service.ts` and potentially `src/modules/simulator/simulator.service.ts`. |
-| Change seed/demo data generation | `src/seed.ts`; keep `prisma/seed.ts` and `src/seed.runner.ts` as thin entrypoints. |
+| Change seed/demo data generation | `src/seed.ts`; keep `src/seed.runner.ts` as a thin entrypoint. |
 | Change chart normalization rules | `src/modules/chart/chart.normalizer.ts` and related tests. |
 | Change manual payload validation | `src/validation/marketPayload.schema.ts`. |
 | Change live socket subscription behavior | `src/modules/realtime/socket.server.ts` and `subscription.store.ts`. |

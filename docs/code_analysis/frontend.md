@@ -21,10 +21,10 @@ The backend owns market rules and historical normalization. The frontend still p
 ```text
 index.html
   -> /src/main.tsx
-  -> React StrictMode
-  -> App
+    -> React StrictMode
+    -> App
   -> AppProviders
-  -> AntD ConfigProvider + AntD App + QueryClientProvider
+    -> AntD ConfigProvider + AntD App + QueryClientProvider
   -> Dashboard
 ```
 
@@ -47,7 +47,7 @@ Dashboard mounts
 ```text
 Socket receives market:update
   -> useMarketSocket validates type and symbol match current selection
-  -> Dashboard.handleUpdate receives payload
+  -> LiveChartSection.handleUpdate receives payload
   -> mergeLiveUpdate() replaces same-minute point, inserts out-of-order points chronologically, or fills missing minutes
   -> React state updates
   -> MarketChart recomputes ECharts option
@@ -110,7 +110,7 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 | `frontend/src/providers/AppProviders.tsx` | Owns app-wide providers: AntD `ConfigProvider`, AntD `App`, and TanStack Query `QueryClientProvider`. |
 | `frontend/src/theme/designTokens.ts` | Central token map for brand colors, fonts, exact chart point colors, and shared theme values. |
 | `frontend/src/theme/antdTheme.ts` | Converts local design tokens into AntD theme configuration and CSS variables. |
-| `frontend/src/index.css` | Global CSS entry. Imports Tailwind utilities, defines CSS variables/global base rules, and keeps only the brand hero background plus one AntD Select internal selector. Most layout and component styling lives in JSX utilities/AntD semantic `classNames`. |
+| `frontend/src/index.css` | Global CSS entry. Imports Tailwind, defines CSS variables/global base rules, and keeps narrow brand/vendor hooks such as the hero background, hero copy margin reset, and AntD Select internal selector. Most layout and component styling lives in JSX utilities/AntD semantic `classNames`. |
 
 ### API Layer
 
@@ -126,19 +126,31 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 |---|---|
 | `frontend/src/hooks/useMarketStatus.ts` | Wraps TanStack Query for market status and symbol list. Status refetches every 30 seconds; symbols cache for 5 minutes. |
 | `frontend/src/hooks/useChartHistory.ts` | Wraps TanStack Query for chart history by `type` and `symbol`; only enabled when market is open. |
-| `frontend/src/hooks/useMarketSocket.ts` | Opens Socket.IO connection, subscribes to the current symbol room, forwards matching updates, handles `market:closed`, and disconnects on cleanup. |
+| `frontend/src/hooks/useMarketSocket.ts` | Opens Socket.IO connection, subscribes to the current symbol room, forwards matching updates, handles `market:closed`, refetches history on socket reconnect to heal any missed gap, and disconnects on cleanup. |
 
 ### Components
 
 | File | Responsibility |
 |---|---|
-| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading, socket updates, backend timezone propagation, minute advancement, and the Tailwind/AntD dashboard shell. |
+| `frontend/src/components/Dashboard.tsx` | Main orchestration component. Handles chart type state, market status gate, symbol selection, history loading/error/empty branching, and delegates shell/header/session/live-chart rendering to dashboard subcomponents. |
 | `frontend/src/components/MarketChart.tsx` | Builds ECharts options and renders the AntD chart card, dotted yesterday-close line, colored points, latest heartbeat point, backend-timezone-aware tooltip/axis labels, and latest-value badge. Uses AntD theme tokens for non-spec chart colors. |
 | `frontend/src/components/ChartTypeDropdown.tsx` | AntD Select control for switching between `INDEX` and `STOCK`. |
-| `frontend/src/components/LatestValueBadge.tsx` | AntD Card/Statistic/Tag showing the latest index/stock value in the chart header. |
+| `frontend/src/components/LatestValueBadge.tsx` | AntD Card/Statistic showing the latest index/stock value in the chart header, with the `Live` tag placed inline beside the statistic title. |
 | `frontend/src/components/MarketClosedState.tsx` | AntD Card/Typography closed-market state with configured hours and timezone. |
 | `frontend/src/components/LoadingState.tsx` | Shared AntD Card/Spin loading state component. |
 | `frontend/src/components/ErrorState.tsx` | Shared AntD Card/Alert/Button error state component with retry action. |
+
+### Dashboard Subcomponents
+
+| File | Responsibility |
+|---|---|
+| `frontend/src/components/dashboard/DashboardShell.tsx` | Page-level dashboard wrapper. Renders the header and constrained body container. |
+| `frontend/src/components/dashboard/DashboardHeader.tsx` | WingsFin logo/title/header copy and compact market status card. |
+| `frontend/src/components/dashboard/MarketSessionCard.tsx` | Market session summary card for session hours, timezone, and selected instrument. |
+| `frontend/src/components/dashboard/EmptyChartState.tsx` | Shared empty-chart AntD Card/Empty state for open-market sessions with no points. |
+| `frontend/src/components/dashboard/LiveChartSection.tsx` | Owns mutable live chart points after history loads, subscribes to Socket.IO updates, advances the current minute, and passes points into `MarketChart`. |
+| `frontend/src/components/dashboard/layout.ts` | Shared constrained content width class used by the dashboard shell and header. |
+| `frontend/src/components/dashboard/types.ts` | Dashboard-local shared types such as `HeaderState`. |
 
 ### Types
 
@@ -169,25 +181,28 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 
 ### `Dashboard`
 
-`Dashboard` is the highest-value file to understand first. It decides which state the user sees:
+`Dashboard` is the highest-value file to understand first because it coordinates data and state branching. It decides which state the user sees:
 
 - Loading market status -> `LoadingState`.
 - Market status error -> `ErrorState`.
 - Market closed -> `MarketClosedState`.
 - Market open but chart history loading -> `LoadingState`.
 - Chart history error -> `ErrorState`.
-- Market open with points -> `LiveChartSection` and `MarketChart`.
+- Market open with points -> `LiveChartSection`, which renders `MarketChart`.
 
 It also picks the active symbol. If `/api/symbols` has not returned yet, it falls back to `DSEX` for `INDEX` and `GP` for `STOCK`.
+
+The shell, header, session details, empty chart card, and live socket/chart state are intentionally split into `src/components/dashboard/*` so `Dashboard.tsx` stays focused on orchestration.
 
 ### `LiveChartSection`
 
 `LiveChartSection` owns the mutable chart points after history loads. The initial state comes from backend history. After that:
 
-- Socket updates call `mergeLiveUpdate()`.
+- Socket updates from `useMarketSocket()` call `mergeLiveUpdate()`.
 - A one-second interval calls `advanceToMinute()` only when the minute changes.
 - `lastMinuteRef` prevents 59 unnecessary state updates per minute.
 - The backend `history.timezone` is passed into live merge and minute advancement so generated minute labels match the backend market session.
+- On socket reconnect, `useMarketSocket()` triggers a history refetch. Because the section's `key` includes the query's `dataUpdatedAt`, the new payload remounts `LiveChartSection` and re-seeds points from authoritative server history, healing any gap missed while the socket was disconnected. During normal operation the key is stable, so live-merged points accumulate intact.
 
 ### `MarketChart`
 
@@ -206,8 +221,8 @@ It also picks the active symbol. If `/api/symbols` has not returned yet, it fall
 The current styling split is intentional:
 
 - AntD owns base components, interaction states, cards, select, alert, statistic, tags, loading, empty, and app-level tokens.
-- Tailwind utilities own most component layout, spacing, sizing, alignment, and responsive behavior directly in JSX.
-- `frontend/src/index.css` owns global CSS variables, document/app base rules, the layered hero background, and the AntD Select internal selector that cannot be reached cleanly through component props.
+- Tailwind utilities own most component layout, spacing, sizing, alignment, and responsive behavior directly in JSX. The app imports full Tailwind so default scale utilities and arbitrary-value utilities are both available.
+- `frontend/src/index.css` owns global CSS variables, document/app base rules, the layered hero background, the hero copy margin reset needed to override AntD reset margins, and the AntD Select internal selector that cannot be reached cleanly through component props.
 - ECharts options stay in `MarketChart.tsx` because chart grid, axis, tooltip, mark line, and series colors are configured through JavaScript.
 
 Brand values are centralized in `frontend/src/theme/designTokens.ts`. The required chart point colors are also defined there and are still validated by `chartColors.test.ts`:
@@ -231,7 +246,7 @@ Do not treat `index.css` as the place for all component styling. Add styles in t
 
 1. Prefer AntD props, semantic `classNames`, and theme tokens.
 2. Use Tailwind utility classes for layout, spacing, dimensions, responsive behavior, and simple token-backed colors.
-3. Use `index.css` only for global tokens/base rules, pseudo-elements, or unavoidable nested vendor selectors.
+3. Use `index.css` only for global tokens/base rules, pseudo-elements, unavoidable nested vendor selectors, or narrow reset overrides such as `.brand-hero-copy`.
 4. Keep ECharts visual behavior in `MarketChart.tsx` chart options.
 
 ## Environment Variables
@@ -256,7 +271,7 @@ When the dropdown changes:
 1. `chartType` state changes.
 2. `selectedSymbol` recalculates from `/api/symbols` or fallback values.
 3. `useChartHistory()` refetches with a new query key.
-4. `LiveChartSection` remounts because its `key` includes type, symbol, and current minute.
+4. `LiveChartSection` remounts because its `key` includes type, symbol, and the query's `dataUpdatedAt` (which changes on every fetch, including switches and reconnect refetches).
 5. `useMarketSocket()` opens a new subscription for the selected symbol.
 
 ### Live Merge Rules
@@ -294,11 +309,11 @@ The Vite dev server normally runs at `http://localhost:5173`.
 | Change API host | `.env` or `.env.example`, values consumed by `src/api/client.ts`. |
 | Change app/provider setup | `src/providers/AppProviders.tsx`. |
 | Change AntD theme tokens | `src/theme/designTokens.ts` and `src/theme/antdTheme.ts`. |
-| Change dashboard layout/spacing | Tailwind/AntD `className` and `classNames` usage in `src/components/*`, especially `Dashboard.tsx` and `MarketChart.tsx`. |
+| Change dashboard layout/spacing | Tailwind/AntD `className` and `classNames` usage in `src/components/dashboard/*`, `src/components/Dashboard.tsx`, and `src/components/MarketChart.tsx`. |
 | Change global CSS variables or unavoidable nested selectors | `src/index.css`. |
 | Change chart options | `src/components/MarketChart.tsx`. |
 | Change point colors | `src/theme/designTokens.ts`, `src/utils/chartColors.ts`, and related tests. |
 | Change live merge behavior | `src/utils/mergeLiveUpdate.ts` and related tests. |
 | Change time display | `src/utils/time.ts` and related tests. |
 | Add a new API call | Add to `src/api/*`, then wrap with a hook if React Query caching is needed. |
-| Add a new screen state | Usually starts in `Dashboard.tsx` with a small component in `src/components`. |
+| Add a new screen state | Usually starts in `Dashboard.tsx` with a small component in `src/components` or `src/components/dashboard`. |

@@ -4,6 +4,10 @@ import { env } from '@src/config/env';
 import { logger } from '@src/config/logger';
 import { prisma } from '@src/db/prisma';
 import {
+  startMarketClock,
+  stopMarketClock,
+} from '@src/modules/market/market.clock';
+import {
   attachSocketServer,
   closeSocketServer,
 } from '@src/modules/realtime/socket.server';
@@ -42,6 +46,10 @@ async function bootstrap(): Promise<void> {
   await waitForDatabase();
   await ensureDefaultSymbols();
 
+  // Always run the market clock so `market:closed` is emitted on the
+  // open -> closed transition regardless of whether the simulator is enabled.
+  startMarketClock();
+
   if (env.simulatorEnabled) {
     await startSimulator();
     logger.info('Simulator started');
@@ -59,6 +67,7 @@ function shutdown(): void {
 
   shuttingDown = true;
   logger.info('Shutting down...');
+  stopMarketClock();
   stopSimulator();
   void closeSocketServer()
     .catch((error) => {

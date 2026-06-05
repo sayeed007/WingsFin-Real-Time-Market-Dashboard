@@ -90,9 +90,10 @@ export function Dashboard() {
             <EmptyChartState />
           ) : (
             <LiveChartSection
-              key={`${history.data.type}:${history.data.symbol}:${history.data.currentMinute}`}
+              key={`${history.data.type}:${history.data.symbol}:${history.dataUpdatedAt}`}
               history={history.data}
               onMarketClosed={handleMarketClosed}
+              onReconnect={() => void history.refetch()}
             />
           )}
         </>

@@ -10,6 +10,7 @@ import type {
   SymbolType,
 } from '@src/modules/market/market.types';
 import { KeyedTtlCache } from '@src/utils/cache';
+import { HttpError } from '@src/utils/http';
 import { getMarketSession, isWithinSession, toIso } from '@src/utils/time';
 
 const historyCache = new KeyedTtlCache<ChartHistoryResponse>(10_000);
@@ -54,7 +55,8 @@ export async function getChartHistory(params: {
   });
 
   if (!symbol || symbol.type !== params.type) {
-    throw new Error(
+    throw new HttpError(
+      404,
       `Unknown ${params.type.toLowerCase()} symbol ${params.symbol}.`,
     );
   }

@@ -13,10 +13,18 @@ import { MarketChart } from '../MarketChart'
 export function LiveChartSection({
   history,
   onMarketClosed,
+  onReconnect,
 }: {
   history: ChartHistoryResponse
   onMarketClosed: () => void
+  onReconnect?: () => void
 }) {
+  // `points` is seeded from the authoritative server history at mount. The
+  // parent remounts this section (via a key that includes the query's
+  // dataUpdatedAt) whenever a fresh history payload arrives — e.g. on a
+  // socket-reconnect refetch — so any gap missed while disconnected is healed
+  // from server data without a setState-in-effect re-sync. During normal
+  // operation the key is stable, so live-merged points accumulate intact.
   const [points, setPoints] = useState<ChartPoint[]>(() => history.points)
   const lastMinuteRef = useRef<number>(
     history.points.length > 0
@@ -45,6 +53,7 @@ export function LiveChartSection({
     symbol: history.symbol,
     onUpdate: handleUpdate,
     onClosed: onMarketClosed,
+    onReconnect,
   })
 
   useEffect(() => {
