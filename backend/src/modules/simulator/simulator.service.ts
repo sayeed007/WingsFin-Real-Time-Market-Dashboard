@@ -4,6 +4,7 @@ import { DateTime } from 'luxon';
 import { env } from '@src/config/env';
 import { logger } from '@src/config/logger';
 import { prisma } from '@src/db/prisma';
+import { logAuditEvent } from '@src/modules/audit/audit.service';
 import { invalidateChartHistoryCache } from '@src/modules/chart/chart.service';
 import { isMarketOpen } from '@src/modules/market/market.service';
 import type {
@@ -146,12 +147,30 @@ async function recordTick(params: {
   });
   invalidateChartHistoryCache({ type: params.type, symbol: params.symbol });
 
+  logAuditEvent({
+    category: 'MARKET_DATA',
+    action: 'TICK_PERSISTED',
+    actor: 'simulator.service',
+    symbol: params.symbol,
+    symbolType: params.type,
+    value: params.value,
+    meta: { yesterdayClose: referenceClose },
+  });
+
   const update = createMarketUpdate({
     ...params,
     yesterdayClose: referenceClose,
   });
   if (isMarketOpen()) {
     emitMarketUpdate(update);
+    logAuditEvent({
+      category: 'REALTIME',
+      action: 'TICK_EMITTED',
+      actor: 'simulator.service',
+      symbol: params.symbol,
+      symbolType: params.type,
+      value: params.value,
+    });
   }
   return update;
 }
@@ -225,6 +244,15 @@ async function tick(state: SimulatorState): Promise<void> {
     }
   } catch (error) {
     logger.error(error, 'Simulator tick failed');
+    logAuditEvent({
+      category: 'SIMULATOR',
+      action: 'SIMULATOR_TICK',
+      actor: 'simulator.service',
+      severity: 'ERROR',
+      symbol: state.symbol,
+      symbolType: state.type,
+      meta: { error: (error as Error).message },
+    });
   }
 }
 
@@ -263,6 +291,15 @@ export async function startSimulator(): Promise<void> {
   await ensureDefaultSymbols();
   await Promise.all(states.map(hydrateStateFromLatestTick));
   states.forEach(schedule);
+  logAuditEvent({
+    category: 'SIMULATOR',
+    action: 'SIMULATOR_STARTED',
+    actor: 'simulator.service',
+    meta: {
+      symbols: states.map((s) => s.symbol),
+      intervalRange: [env.simulatorMinIntervalMs, env.simulatorMaxIntervalMs],
+    },
+  });
 }
 
 export function stopSimulator(): void {
@@ -271,4 +308,9 @@ export function stopSimulator(): void {
       clearTimeout(state.timer);
     }
   }
+  logAuditEvent({
+    category: 'SIMULATOR',
+    action: 'SIMULATOR_STOPPED',
+    actor: 'simulator.service',
+  });
 }

@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 
 import { logger } from '@src/config/logger';
+import { logAuditEvent } from '@src/modules/audit/audit.service';
 import { isMarketOpen } from '@src/modules/market/market.service';
 import { emitMarketClosed } from '@src/modules/realtime/socket.server';
 import { getMarketSession, toIso } from '@src/utils/time';
@@ -27,11 +28,29 @@ function check(): void {
     return;
   }
 
+  if (!lastOpen && open) {
+    logAuditEvent({
+      category: 'SESSION',
+      action: 'MARKET_OPEN',
+      actor: 'market.clock',
+      severity: 'INFO',
+      meta: { sessionStart: toIso(getMarketSession(DateTime.utc()).sessionStart) },
+    });
+    logger.info('Market opened');
+  }
+
   if (lastOpen && !open) {
     const session = getMarketSession(DateTime.utc());
     emitMarketClosed({
       message: 'Market is now closed.',
       closedAt: toIso(session.sessionEnd),
+    });
+    logAuditEvent({
+      category: 'SESSION',
+      action: 'MARKET_CLOSED',
+      actor: 'market.clock',
+      severity: 'INFO',
+      meta: { closedAt: toIso(session.sessionEnd) },
     });
     logger.info('Market closed — emitted market:closed to clients');
   }

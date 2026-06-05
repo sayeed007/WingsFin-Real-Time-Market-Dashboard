@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon';
 
 import { prisma } from '@src/db/prisma';
+import { logAuditEvent } from '@src/modules/audit/audit.service';
 import {
   normalizeTicksToMinutes,
   type RawTickForNormalization,
@@ -47,8 +48,22 @@ export async function getChartHistory(params: {
   const cacheKey = historyCacheKey(params.type, params.symbol, currentMinute);
   const cached = historyCache.get(cacheKey);
   if (cached) {
+    logAuditEvent({
+      category: 'MARKET_DATA',
+      action: 'CACHE_HIT',
+      actor: 'chart.service',
+      symbol: params.symbol,
+      symbolType: params.type,
+    });
     return cached;
   }
+  logAuditEvent({
+    category: 'MARKET_DATA',
+    action: 'CACHE_MISS',
+    actor: 'chart.service',
+    symbol: params.symbol,
+    symbolType: params.type,
+  });
 
   const symbol = await prisma.symbol.findUnique({
     where: { symbol: params.symbol },

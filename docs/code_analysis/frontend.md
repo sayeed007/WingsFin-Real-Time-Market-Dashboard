@@ -12,7 +12,7 @@ The frontend has five main responsibilities:
 4. Merge live updates into the current one-minute chart series.
 5. Render a WingsFin-branded dashboard with loading, error, closed, empty, and live states.
 
-The backend owns market rules and historical normalization. The frontend still performs live merge logic so the visible chart can update immediately between history refetches.
+The backend owns market rules and historical normalization. The frontend still performs live merge logic so the visible chart can update immediately between history re-fetches.
 
 ## Runtime Flow
 
@@ -93,11 +93,6 @@ While the market is open, `LiveChartSection` runs a lightweight interval every s
 | File | Responsibility |
 |---|---|
 | `frontend/public/logo.webp` | Official WingsFin logo used in the dashboard header and browser favicon. |
-| `frontend/public/favicon.svg` | Existing SVG favicon asset retained in the repo but not currently used by `index.html`. |
-| `frontend/public/icons.svg` | SVG icon sprite/asset file retained for static use if needed. |
-| `frontend/src/assets/hero.png` | Static image asset retained in source assets. |
-| `frontend/src/assets/react.svg` | Default React scaffold asset, currently not used by the dashboard. |
-| `frontend/src/assets/vite.svg` | Default Vite scaffold asset, currently not used by the dashboard. |
 
 ## Source Files And Responsibilities
 

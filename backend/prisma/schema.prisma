@@ -12,6 +12,21 @@ enum SymbolType {
   STOCK
 }
 
+enum AuditCategory {
+  MARKET_DATA
+  SIMULATOR
+  REALTIME
+  SESSION
+  SYSTEM
+  API
+}
+
+enum AuditSeverity {
+  INFO
+  WARN
+  ERROR
+}
+
 model Symbol {
   id             String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   symbol         String     @unique @db.VarChar(32)
@@ -40,3 +55,23 @@ model MarketTick {
   @@index([eventTime(sort: Desc)], map: "idx_market_ticks_event_time")
   @@map("market_ticks")
 }
+
+model AuditLog {
+  id         BigInt        @id @default(autoincrement())
+  timestamp  DateTime      @default(now()) @db.Timestamptz(6)
+  category   AuditCategory
+  action     String        @db.VarChar(64)
+  actor      String        @db.VarChar(64)
+  severity   AuditSeverity @default(INFO)
+  symbol     String?       @db.VarChar(32)
+  symbolType SymbolType?   @map("symbol_type")
+  value      Decimal?      @db.Decimal(14, 4)
+  durationMs Int?          @map("duration_ms")
+  meta       Json?
+
+  @@index([timestamp(sort: Desc)], map: "idx_audit_logs_timestamp")
+  @@index([category, timestamp(sort: Desc)], map: "idx_audit_logs_category_time")
+  @@index([symbol, timestamp(sort: Desc)], map: "idx_audit_logs_symbol_time")
+  @@map("audit_logs")
+}
+
