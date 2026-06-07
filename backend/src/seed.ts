@@ -16,6 +16,11 @@ type SeedInstrument = {
   maxDelta: number;
 };
 
+type SeedWindowControls = {
+  sessionDate?: string;
+  untilTime?: string;
+};
+
 const instruments: SeedInstrument[] = [
   {
     type: 'INDEX',
@@ -48,17 +53,68 @@ function randomWalk(value: number, instrument: SeedInstrument): number {
   );
 }
 
-function seedWindow(): { start: DateTime; end: DateTime } {
-  const today = DateTime.now().setZone(env.marketTimezone).toISODate();
-  const sessionDate = process.env.SEED_SESSION_DATE || today;
-  const untilTime = process.env.SEED_UNTIL_TIME || '11:30';
+function parseSeedUntilTime(
+  untilTime = env.seedUntilTime,
+): string | undefined {
+  if (!untilTime) {
+    return undefined;
+  }
+
+  if (!/^\d{2}:\d{2}$/.test(untilTime)) {
+    throw new Error('SEED_UNTIL_TIME must use HH:mm format.');
+  }
+
+  const [hour, minute] = untilTime.split(':').map(Number);
+  if (hour > 23 || minute > 59) {
+    throw new Error('SEED_UNTIL_TIME must be a valid HH:mm time.');
+  }
+
+  return untilTime;
+}
+
+function clampDateTime(value: DateTime, min: DateTime, max: DateTime): DateTime {
+  if (value < min) {
+    return min;
+  }
+
+  if (value > max) {
+    return max;
+  }
+
+  return value;
+}
+
+export function seedWindow(
+  now: DateTime = DateTime.now(),
+  controls: SeedWindowControls = {},
+): {
+  start: DateTime;
+  end: DateTime;
+} {
+  const marketNow = now.setZone(env.marketTimezone);
+  const today = marketNow.toISODate();
+  const sessionDate =
+    controls.sessionDate || env.seedSessionDate || today;
+  const configuredUntilTime = parseSeedUntilTime(controls.untilTime);
   const start = DateTime.fromISO(`${sessionDate}T${env.marketOpenTime}`, {
     zone: env.marketTimezone,
   });
-  const end = DateTime.fromISO(`${sessionDate}T${untilTime}`, {
+  const close = DateTime.fromISO(`${sessionDate}T${env.marketCloseTime}`, {
     zone: env.marketTimezone,
   });
-  return { start, end };
+
+  const dynamicEnd =
+    configuredUntilTime === undefined && sessionDate === today
+      ? marketNow.startOf('minute')
+      : close;
+  const requestedEnd =
+    configuredUntilTime === undefined
+      ? dynamicEnd
+      : DateTime.fromISO(`${sessionDate}T${configuredUntilTime}`, {
+          zone: env.marketTimezone,
+        });
+
+  return { start, end: clampDateTime(requestedEnd, start, close) };
 }
 
 async function seedInstrument(instrument: SeedInstrument): Promise<void> {

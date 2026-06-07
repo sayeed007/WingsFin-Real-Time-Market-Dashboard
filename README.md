@@ -35,6 +35,7 @@ Open:
 - Audit trail: http://localhost:4000/api/audit/events
 
 The backend container runs Prisma migrations and seeds non-uniform historical data before starting.
+By default, the seed reaches the current market minute for today's session, capped at market close, so the chart does not show a stale demo flatline after a fixed cutoff.
 API docs and audit reads are intentionally open during the development phase and should be protected once RBAC is implemented.
 
 ## Local Development
@@ -78,9 +79,12 @@ docker compose exec backend npm run seed
 Optional seed controls:
 
 ```bash
-SEED_SESSION_DATE=2026-06-03
+SEED_SESSION_DATE=2026-06-07
 SEED_UNTIL_TIME=11:30
 ```
+
+Leave `SEED_UNTIL_TIME` unset for the normal demo path. Set it only when you
+intentionally want a mid-session cutoff to test forward-filled missing minutes.
 
 ## Test Market Closed State
 

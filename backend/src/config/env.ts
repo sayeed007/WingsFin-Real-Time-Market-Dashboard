@@ -17,6 +17,8 @@ export type AppEnv = {
   simulatorMinIntervalMs: number;
   simulatorMaxIntervalMs: number;
   corsOrigin: string;
+  seedSessionDate?: string;
+  seedUntilTime?: string;
 };
 
 function readNumber(name: string, fallback: number): number {
@@ -41,6 +43,10 @@ function readBoolean(name: string, fallback: boolean): boolean {
 
 function readString(name: string, fallback: string): string {
   return process.env[name] || fallback;
+}
+
+function readOptionalString(name: string): string | undefined {
+  return process.env[name] || undefined;
 }
 
 function assertMarketTime(name: string, value: string): void {
@@ -77,4 +83,6 @@ export const env: AppEnv = {
   simulatorMinIntervalMs: readNumber('SIMULATOR_MIN_INTERVAL_MS', 300),
   simulatorMaxIntervalMs: readNumber('SIMULATOR_MAX_INTERVAL_MS', 3000),
   corsOrigin: readString('CORS_ORIGIN', 'http://localhost:5173'),
+  seedSessionDate: readOptionalString('SEED_SESSION_DATE'),
+  seedUntilTime: readOptionalString('SEED_UNTIL_TIME'),
 };

@@ -37,6 +37,8 @@ services:
       SIMULATOR_MAX_INTERVAL_MS: ${SIMULATOR_MAX_INTERVAL_MS:-3000}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
       SEED_ON_STARTUP: ${SEED_ON_STARTUP:-true}
+      SEED_SESSION_DATE: ${SEED_SESSION_DATE:-}
+      SEED_UNTIL_TIME: ${SEED_UNTIL_TIME:-}
     ports:
       - "4000:4000"
     command: >
