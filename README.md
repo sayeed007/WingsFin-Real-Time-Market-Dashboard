@@ -149,6 +149,15 @@ is using it.
 - ECharts is bundled into the frontend, which makes the client bundle larger but gives strong time-series and effect-scatter support quickly.
 - Prisma is pinned to v6 because v7 changed schema/client configuration significantly; v6 keeps the standard schema workflow clear for this assignment.
 
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md) — system architecture, data flows, database design, simulation strategy, scalability, trade-offs, and design decisions (with diagrams).
+- [docs/demo-script.md](docs/demo-script.md) — step-by-step demo video script.
+- [docs/code_analysis/backend.md](docs/code_analysis/backend.md) and [docs/code_analysis/frontend.md](docs/code_analysis/frontend.md) — deeper, file-by-file onboarding guides for new engineers.
+- API reference — interactive Swagger UI at http://localhost:4000/api/docs.
+
+PDF copies of the architecture document, this README, and the demo script are provided alongside the submission email; the Markdown files above remain the living source of truth in the repo.
+
 ## Demo Video
 
 Demo video link: _add submission video link here_.

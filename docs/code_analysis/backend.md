@@ -1,15 +1,34 @@
 # Backend Code Analysis
 
-This file explains the backend codebase from the point of view of a new engineer reading the project. The backend is an Express + Socket.IO + Prisma service that stores raw market ticks, normalizes them into one-minute chart points, and emits live market updates.
+This file explains the backend codebase from the point of view of a new engineer reading the project. The backend is an Express + Socket.IO + Prisma service that stores raw market ticks, normalizes them into one-minute chart points, emits live market updates, documents itself through an OpenAPI/Swagger UI, and records a persisted financial audit trail.
+
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+  Simulator["In-process Simulator<br/>(random walk, &le;3s)"] --> Service["simulator.service<br/>recordTick()"]
+  ManualAPI["POST /api/simulate/*"] --> Service
+  Service --> DB[("PostgreSQL<br/>symbols · market_ticks · audit_logs")]
+  Service --> Socket["Socket.IO rooms<br/>INDEX:DSEX / STOCK:GP"]
+  Socket --> FE["React Frontend"]
+  FE -- "GET /api/chart/history" --> Chart["chart.service + normalizer"]
+  Chart --> DB
+  Clock["market.clock<br/>(1s heartbeat)"] -. "market:closed" .-> Socket
+  Service -. "logAuditEvent()" .-> Audit["audit.service<br/>ring buffer + DB"]
+  Audit --> DB
+  Docs["Swagger UI /api/docs"] -. "OpenAPI spec" .-> App["Express app"]
+```
 
 ## Backend Mental Model
 
-The backend has four main responsibilities:
+The backend has six main responsibilities:
 
-1. Expose HTTP APIs under `/api`.
-2. Store and read market symbols and raw market ticks from PostgreSQL through Prisma.
+1. Expose HTTP APIs under `/api` (documented at `/api/docs`).
+2. Store and read market symbols, raw market ticks, and audit events from PostgreSQL through Prisma.
 3. Normalize raw ticks into chart-ready one-minute points.
 4. Emit live updates through Socket.IO while the configured market session is open.
+5. Emit `market:closed` on the open→closed transition via an independent market clock.
+6. Record a financial audit trail for every API request and domain event.
 
 The important design choice is that the database stores raw ticks, not precomputed chart rows. The chart history endpoint rebuilds the chart from ticks, applies the latest-tick-wins rule for each minute, and forward-fills missing minutes.
 
@@ -98,8 +117,10 @@ When the market is closed:
 | `/api/market/status` | GET | `market.routes.ts` | Returns current market open/closed status, session time, timezone, and message if closed. |
 | `/api/symbols` | GET | `symbols.routes.ts` | Returns all available instruments with type and yesterday close. |
 | `/api/chart/history?type=INDEX&symbol=DSEX` | GET | `chart.routes.ts` | Returns normalized one-minute chart history for one symbol. |
-| `/api/simulate/index` | POST | `simulator.routes.ts` | Manually records an index update payload. |
-| `/api/simulate/stock` | POST | `simulator.routes.ts` | Manually records a stock update payload. |
+| `/api/simulate/index` | POST | `simulator.routes.ts` | Manually records an index update payload. Rate-limited to 120/min. |
+| `/api/simulate/stock` | POST | `simulator.routes.ts` | Manually records a stock update payload. Rate-limited to 120/min. |
+| `/api/audit/events` | GET | `audit.routes.ts` | Queries the persisted audit trail with category/severity/symbol/time filters. Rate-limited to 60/min. |
+| `/api/docs` | GET | `server.ts` + `config/swagger.ts` | Interactive Swagger UI for the OpenAPI 3.0 contract. |
 | Socket event `subscribe` | client -> server | `socket.server.ts` | Joins a socket to a symbol room such as `INDEX:DSEX`. |
 | Socket event `market:update` | server -> client | `socket.server.ts` | Sends live chart updates to subscribed clients. |
 | Socket event `market:closed` | server -> client | `socket.server.ts` | Tells all clients the market is closed. |
@@ -129,6 +150,20 @@ Represents every raw incoming market update.
 
 Indexes exist on `symbol + eventTime` and `eventTime` so history queries can efficiently read a session window.
 
+### `AuditLog`
+
+Represents one financial/operational audit event.
+
+- `timestamp`: when the event occurred.
+- `category`: one of `MARKET_DATA`, `SIMULATOR`, `REALTIME`, `SESSION`, `SYSTEM`, `API`.
+- `action`: the specific event, e.g. `TICK_PERSISTED`, `API_REQUEST`, `MARKET_CLOSED`.
+- `actor`: who/what produced the event, e.g. `simulator.service`, `market.clock`, or the request IP.
+- `severity`: `INFO`, `WARN`, or `ERROR`.
+- `symbol` / `symbolType` / `value` / `durationMs`: optional context fields.
+- `meta`: free-form JSON payload (request id, path, status code, error info, etc.).
+
+Indexes exist on `timestamp`, `category + timestamp`, and `symbol + timestamp` for filtered audit queries.
+
 ## Root Files And Responsibilities
 
 | File | Responsibility |
@@ -151,18 +186,20 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 
 | File | Responsibility |
 |---|---|
-| `backend/prisma/schema.prisma` | Defines Prisma generator, PostgreSQL datasource, `SymbolType` enum, `Symbol` model, and `MarketTick` model. |
-| `backend/prisma/migrations/20260603165000_init/migration.sql` | SQL migration that creates the initial database schema and indexes. |
+| `backend/prisma/schema.prisma` | Defines Prisma generator, PostgreSQL datasource, the `SymbolType` / `AuditCategory` / `AuditSeverity` enums, and the `Symbol`, `MarketTick`, and `AuditLog` models. |
+| `backend/prisma/migrations/20260603165000_init/migration.sql` | SQL migration that creates the initial `symbols` and `market_ticks` schema and indexes. |
+| `backend/prisma/migrations/20260605140803_add_audit_log/migration.sql` | SQL migration that adds the `audit_logs` table, its enums, and its indexes. |
 
 ## Source Entry Files And Responsibilities
 
 | File | Responsibility |
 |---|---|
 | `backend/src/main.ts` | Process entrypoint. Creates HTTP server, attaches Socket.IO, waits for DB, ensures symbols, starts the market clock, starts the simulator, listens on port, and handles guarded graceful shutdown. |
-| `backend/src/server.ts` | Creates the Express app. Adds CORS, compression, JSON body parsing, URL encoding, Helmet, dev logging, API router, and central error handler. |
-| `backend/src/routes/apiRouter.ts` | Mounts all domain routers under `/api`: health, market, symbols, chart, and simulate. |
+| `backend/src/server.ts` | Creates the Express app. Adds CORS, compression, JSON body parsing, URL encoding, the Swagger UI route (`/api/docs`), Helmet, dev logging, the per-request audit middleware (assigns `X-Request-Id` and logs `API_REQUEST`/`API_ERROR` on response finish), the API router, and the central error handler. |
+| `backend/src/routes/apiRouter.ts` | Mounts all domain routers under `/api`: health, market, symbols, chart, simulate, and audit. |
 | `backend/src/config/env.ts` | Loads `.env`, parses all config values, validates market time format, and exposes the typed `env` object. |
 | `backend/src/config/logger.ts` | Creates the Pino logger with pretty output in development, JSON output in production, and silent output in tests. |
+| `backend/src/config/swagger.ts` | Hand-authored OpenAPI 3.0 spec object (schemas + paths) served by Swagger UI at `/api/docs`. |
 | `backend/src/db/prisma.ts` | Creates the shared Prisma client and configures Prisma logging by environment. |
 | `backend/src/seed.ts` | Shared seed implementation. Generates non-uniform demo ticks, skipped minutes, and multiple updates inside some minutes. |
 | `backend/src/seed.runner.ts` | Production seed entrypoint compiled into `dist`, used by `npm run seed:prod` in Docker runtime images. |
@@ -213,6 +250,13 @@ Indexes exist on `symbol + eventTime` and `eventTime` so history queries can eff
 |---|---|
 | `backend/src/modules/health/health.routes.ts` | Defines `GET /api/health`, runs `SELECT 1`, and returns status/time JSON. |
 
+### Audit Module
+
+| File | Responsibility |
+|---|---|
+| `backend/src/modules/audit/audit.service.ts` | Owns `logAuditEvent()` (dual-write to a 500-entry in-memory ring buffer + async best-effort `audit_logs` insert), plus `queryAuditEvents()` (DB) and `getRecentAuditEvents()` (buffer). Failures to persist are logged, never thrown. |
+| `backend/src/modules/audit/audit.routes.ts` | Defines `GET /api/audit/events`, validates/parses query filters (category, severity, symbol, from, to, limit), and applies a 60/min rate limit. |
+
 ## Shared Utility Files And Responsibilities
 
 | File | Responsibility |
@@ -261,7 +305,20 @@ The chart always receives one point per minute from market open to the current m
 
 ### Error Handling
 
-Routes use `asyncHandler()` so rejected promises reach the Express error middleware. Known business errors can throw `HttpError(status, message)`. For example, requesting chart history for an unknown symbol throws `HttpError(404, ...)` rather than surfacing as a 500. Unknown/unexpected errors become `500` with the generic message `Internal server error.`
+Routes use `asyncHandler()` so rejected promises reach the Express error middleware. Known business errors can throw `HttpError(status, message)`. For example, requesting chart history for an unknown symbol throws `HttpError(404, ...)` rather than surfacing as a 500. Unknown/unexpected errors become `500` with the generic message `Internal server error.` The error handler also records error name/status (and message for non-500s) onto `res.locals.audit` so the audit middleware can log it.
+
+### Audit Trail
+
+Every meaningful event flows through `logAuditEvent()`:
+
+- The `/api` audit middleware in `server.ts` tags each request with an `X-Request-Id` and logs `API_REQUEST` / `API_ERROR` on response `finish` with method, path, status, and duration.
+- `simulator.service.ts` logs `TICK_PERSISTED` and `TICK_EMITTED`; `market.clock.ts` logs `MARKET_OPEN` / `MARKET_CLOSED`; the simulator lifecycle logs `SIMULATOR_STARTED` / `SIMULATOR_STOPPED`.
+
+Each event is written synchronously to an in-memory ring buffer (size 500) for fast recent reads and asynchronously to the `audit_logs` table. The DB write is best-effort: a failure is logged via Pino but never breaks the request or tick path. `GET /api/audit/events` reads from the database with filters.
+
+### API Documentation
+
+`config/swagger.ts` holds a hand-authored OpenAPI 3.0 document. `server.ts` serves it through `swagger-ui-express` at `/api/docs`, with CSP disabled for that route only (Swagger UI needs inline scripts); Helmet stays active everywhere else.
 
 ### Shutdown
 
@@ -294,6 +351,7 @@ npm run build
 npm run seed:prod
 npm run dev
 npm run lint
+npm run type-check
 npm test
 ```
 
@@ -311,5 +369,7 @@ On Windows, stop any running backend dev server before `npm run build`, because 
 | Change chart normalization rules | `src/modules/chart/chart.normalizer.ts` and related tests. |
 | Change manual payload validation | `src/validation/marketPayload.schema.ts`. |
 | Change live socket subscription behavior | `src/modules/realtime/socket.server.ts` and `subscription.store.ts`. |
-| Change simulator randomness/ranges | `src/modules/simulator/simulator.service.ts`. |
-| Add an API endpoint | Add a domain router/service and mount it in `src/routes/apiRouter.ts`. |
+| Change simulator randomness/ranges | `src/modules/simulator/simulator.service.ts` (and `src/seed.ts` to keep seeded history consistent). |
+| Add an API endpoint | Add a domain router/service, mount it in `src/routes/apiRouter.ts`, and document it in `src/config/swagger.ts`. |
+| Add/adjust an audit event | `src/modules/audit/audit.service.ts` (action union + emit sites). |
+| Change the OpenAPI/Swagger contract | `src/config/swagger.ts`. |

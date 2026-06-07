@@ -49,14 +49,20 @@ docker compose up --build
 - Run the curl command from the README to send a manual index or stock update.
 - Show the chart updating immediately in the browser.
 
-## 7. Market Closed State (3:30 – 4:00)
+## 7. API Docs & Audit Trail (3:30 – 4:00) — optional, senior touch
+
+- Open http://localhost:4000/api/docs to show the interactive **Swagger UI** — point out the documented market, chart, simulate, and audit endpoints.
+- Open http://localhost:4000/api/audit/events to show the **financial audit trail** — point out `TICK_PERSISTED` / `TICK_EMITTED` and `API_REQUEST` events with timestamps.
+- Say: "Every tick and request is audited and persisted, which matters in a financial context."
+
+## 8. Market Closed State (4:00 – 4:30)
 
 - Stop Docker Compose.
 - Edit `.env` to set `MARKET_CLOSE_TIME=10:01` (or a time that has already passed).
 - Restart with `docker compose up --build`.
 - Show the dashboard displaying "Market is currently closed" with market hours.
 
-## 8. Wrap Up (4:00 – 4:30)
+## 9. Wrap Up (4:30 – 5:00)
 
 - Mention the architecture document in `docs/architecture.md`.
 - Mention that tests can be run with `npm test` in both `backend/` and `frontend/`.

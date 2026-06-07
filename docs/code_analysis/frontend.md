@@ -14,6 +14,23 @@ The frontend has five main responsibilities:
 
 The backend owns market rules and historical normalization. The frontend still performs live merge logic so the visible chart can update immediately between history re-fetches.
 
+## Architecture At A Glance
+
+```mermaid
+flowchart TD
+  Status["useMarketStatus()<br/>GET /api/market/status"] --> Gate{Market open?}
+  Gate -- No --> Closed["MarketClosedState"]
+  Gate -- Yes --> History["useChartHistory()<br/>GET /api/chart/history"]
+  History --> Live["LiveChartSection<br/>(mutable point state)"]
+  Socket["useMarketSocket()<br/>Socket.IO subscribe"] -- "market:update" --> Merge["mergeLiveUpdate()"]
+  Merge --> Live
+  Ticker["1s minute ticker<br/>advanceToMinute()"] --> Live
+  Live --> Chart["MarketChart (ECharts)<br/>line · dotted ref · colored dots · heartbeat"]
+  Socket -. "market:closed / reconnect" .-> Status
+```
+
+The contract with the backend: history seeds the series, the socket streams live points, and a local minute ticker guarantees the latest point is always the current minute even when no tick arrives.
+
 ## Runtime Flow
 
 ### Browser Startup
