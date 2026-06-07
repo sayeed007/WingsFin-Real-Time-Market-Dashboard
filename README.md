@@ -164,4 +164,4 @@ PDF copies of the architecture document, this README, and the demo script are pr
 
 ## Demo Video
 
-Demo video link: _add submission video link here_.
+Demo video link: https://screenrec.com/share/TH3lwXMxOg.
